@@ -197,8 +197,9 @@
       queueSize()
     },
     begin(requestId, info) {
-      // A follow-up may start while the previous answer still streams; that turn ends where it is.
-      if (state.turn && state.pending) {
+      // The previous answer is drawn before its state goes: its last text may still wait for the
+      // render timer, and a turn that was still streaming ends where it is.
+      if (state.requestId !== null && (renderTimer !== null || state.pending)) {
         state.pending = false
         render()
       }

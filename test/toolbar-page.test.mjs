@@ -1444,3 +1444,18 @@ describe('hover', () => {
     assert.deepEqual(hovering.filter((selector) => !selector.startsWith('[data-pointer]')), [])
   })
 })
+
+describe('quick successions', () => {
+  test('an answer finished just before the next request begins is still drawn', async () => {
+    const page = loadPage()
+    await openPanel(page, SKILL.translate)
+    page.bar.begin('r1', {})
+    page.bar.append('r1', 'First answer.')
+    page.bar.done('r1')
+    page.bar.begin('r2', { question: 'And then?' })
+    assert.equal(page.$('.result').textContent.trim(), 'First answer.', 'drawn without waiting for the render timer')
+    tick(RENDER_MS)
+    assert.equal(page.$('.result').textContent.trim(), 'First answer.')
+    assert.deepEqual(page.$$('.thread .question').map((node) => node.textContent), ['And then?'])
+  })
+})
