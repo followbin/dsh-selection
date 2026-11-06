@@ -5,14 +5,14 @@ import { Application } from '@webviewjs/webview'
 import { dataDirectory } from '../shared/paths.mjs'
 import { createNativeWindowTweaks, plainOverlayWindow } from './native-window.mjs'
 import { pageHtml } from './page.mjs'
-import { fitWindow, planTop } from './placement.mjs'
+import { fitWindow, place, roomBelow } from './placement.mjs'
 
 const PUMP_VISIBLE_MS = 16
 const PUMP_HIDDEN_MS = 250
 const PAGE_READY_TIMEOUT_MS = 5000
-// Tallest the panel usually gets: header, the scrolling answer and a one-line follow-up box. The panel
-// is placed so that it can grow to this height downwards.
-const PANEL_MAX_HEIGHT = 440
+// The least height a panel gets for its answer before it scrolls: about eight lines plus the header and
+// the follow-up box. Below the selection it may grow further, down to the bottom of the screen.
+const PANEL_MIN_ROOM = 280
 
 /**
  * Where the selection ended, in screen coordinates as selection-hook reports them.
@@ -74,6 +74,8 @@ export async function createOverlay({ onMessage, log }) {
   let anchor = null
   let placement = null
   let bounds = null
+  // How tall the panel was last allowed to grow, as told to the page.
+  let room = null
   // Once the user drags the window it stays where they put it: later size changes keep its top-left.
   let moved = false
   let drag = null
@@ -134,15 +136,24 @@ export async function createOverlay({ onMessage, log }) {
 
   function apply() {
     const layout = layoutOf[mode]
-    // A dragged window keeps its place; otherwise the primary card is centred under the selection.
+    // A dragged window keeps its place; otherwise the primary card starts where the selection ends,
+    // to its right and below it.
     const origin = moved && bounds
       ? { x: bounds.x, y: bounds.y }
-      : { x: anchor.x - layout.primary.x - layout.primary.width / 2, y: placement.top - layout.primary.y }
+      : { x: anchor.x - layout.primary.x, y: placement.top - layout.primary.y }
     const screen = moved && bounds ? screenAt({ x: origin.x + layout.primary.x, y: origin.y + layout.primary.y }) : screenAt(anchor)
     const next = fitWindow({ origin, layout, screen })
     if (bounds && Object.keys(next).every((key) => next[key] === bounds[key])) return
     bounds = next
     overlayWindow.setBounds(bounds)
+  }
+
+  /** The panel scrolls inside instead of growing past its room, so the window never has to move. */
+  function setRoom(next) {
+    const value = Number.isFinite(next) ? Math.floor(next) : null
+    if (mode !== 'panel' || value === room) return
+    room = value
+    call('setRoom', value)
   }
 
   function resize(report) {
@@ -151,10 +162,11 @@ export async function createOverlay({ onMessage, log }) {
     if (report.mode === mode && placement) apply()
   }
 
-  function show(nextMode, expectedHeight) {
+  function show(nextMode, minRoom) {
     mode = nextMode
     setPump(PUMP_VISIBLE_MS)
-    placement = { top: planTop(anchor, expectedHeight, screenAt(anchor)) }
+    placement = place(anchor, minRoom, screenAt(anchor))
+    setRoom(placement.room)
     apply()
     overlayWindow.showInactive()
   }
@@ -172,7 +184,7 @@ export async function createOverlay({ onMessage, log }) {
     },
     showPanel(payload) {
       call('showPanel', payload)
-      show('panel', PANEL_MAX_HEIGHT)
+      show('panel', PANEL_MIN_ROOM)
     },
     /** A request started: clears the result (or opens a new turn in the ask panel). */
     begin: (requestId, info) => call('begin', requestId, info),
@@ -201,7 +213,10 @@ export async function createOverlay({ onMessage, log }) {
       if (!drag) return
       bounds = { ...bounds, x: Math.round(drag.bounds.x + point.x - drag.x), y: Math.round(drag.bounds.y + point.y - drag.y) }
       overlayWindow.setBounds(bounds)
-      if (phase === 'end') drag = null
+      if (phase !== 'end') return
+      drag = null
+      const top = bounds.y + layoutOf[mode].primary.y
+      setRoom(roomBelow(top, screenAt({ x: bounds.x + layoutOf[mode].primary.x, y: top })))
     },
     hide() {
       if (mode === 'hidden') return
@@ -209,6 +224,7 @@ export async function createOverlay({ onMessage, log }) {
       mode = 'hidden'
       placement = null
       bounds = null
+      room = null
       moved = false
       drag = null
       call('reset')

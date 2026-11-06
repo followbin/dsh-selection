@@ -251,6 +251,11 @@
       // A skill run from the ⋯ menu confirms on the ⋯ button: the menu has closed by then.
       flashDone(els.barSkills.querySelector(`[data-skill="${skillId}"]`) || els.more, t.copied)
     },
+    /** How tall the panel may grow before it scrolls inside, from the worker's placement. */
+    setRoom(px) {
+      body.style.setProperty('--room', Number.isFinite(px) && px > 0 ? `${px}px` : 'none')
+      queueSize()
+    },
     reset() {
       body.dataset.mode = 'hidden'
       body.dataset.menu = 'closed'

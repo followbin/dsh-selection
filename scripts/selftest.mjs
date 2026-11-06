@@ -55,7 +55,7 @@ const report = { frontBefore, steps: {}, clicks: {} }
 
 overlay.showBar({ x: 640, y: 260, top: 240, precise: false })
 await sleep(700)
-report.steps.bar = { native: overlay.inspect(), layout: await probe(), front: frontApp(), dock: ownType() }
+report.steps.bar = { native: overlay.inspect(), layout: await probe(), front: frontApp(), dock: ownType(), bounds: { ...overlay.bounds } }
 
 overlay.setMenu(true)
 await sleep(400)
@@ -93,8 +93,8 @@ const after = overlay.bounds
 const frame = overlay.inspect().frame
 report.drag = { before, after, frame }
 
-// Near the bottom of the screen the panel goes above the selection, and still keeps its top edge
-// while the answer streams in, so the text being read does not move.
+// Near the bottom of the screen the panel goes just above the selection, keeps its top edge while the
+// answer streams in (the text being read does not move) and scrolls rather than covering the selection.
 overlay.showBar({ x: 640, y: 860, top: 840, precise: true })
 overlay.showPanel({ skill: skills.find((skill) => skill.id === 'explain'), text: '靠近屏幕底部的选区', app: 'selftest', languages: [] })
 overlay.begin('r3', {})
@@ -108,7 +108,8 @@ for (let i = 0; i < 12; i += 1) {
 overlay.done('r3')
 await sleep(300)
 tops.push(overlay.bounds.y)
-report.growth = { tops: [...new Set(tops)], selectionTop: 840, bottom: overlay.bounds.y + overlay.bounds.height }
+const grown = await probe()
+report.growth = { tops: [...new Set(tops)], selectionTop: 840, cardTop: overlay.bounds.y + 12, cardBottom: overlay.bounds.y + 12 + grown.card.height }
 
 if (interactive) {
   overlay.showBar({ x: 640, y: 260, top: 240, precise: false })
@@ -143,6 +144,9 @@ for (const [name, step] of Object.entries(report.steps)) {
 }
 if (report.steps.menu.layout && report.steps.menu.layout.viewport.height <= bar.layout.viewport.height) problems.push('window did not grow for the ⋯ menu')
 if (report.growth.tops.length !== 1) problems.push(`the panel moved while the answer streamed in: tops ${report.growth.tops.join(', ')}`)
+if (report.growth.cardBottom > 840 - 8) problems.push(`the panel covers the selection: its bottom is at ${report.growth.cardBottom}`)
+if (report.growth.cardTop < 840 - 8 - 280 - 1) problems.push(`the panel sits too far above the selection: its top is at ${report.growth.cardTop}`)
+if (bar.bounds.x !== 640 - 18) problems.push(`the toolbar does not start where the selection ends: x ${bar.bounds.x}`)
 const asked = report.steps.ask.layout
 const question = asked?.questions?.[0]
 if (!question || question.right < asked.body.right - 24 || question.left < asked.body.left + 40) problems.push('the question bubble is not on the right')
