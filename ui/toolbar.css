@@ -1,0 +1,149 @@
+:root {
+  --surface: #ffffff;
+  --text: #1f1f1f;
+  --muted: #8a8a8e;
+  --soft: #f4f4f5;
+  --hairline: rgba(0, 0, 0, 0.08);
+  --hover: rgba(0, 0, 0, 0.05);
+  --press: rgba(0, 0, 0, 0.09);
+  --accent: #4d6bfe;
+  --danger: #d4302b;
+  --shadow: 0 0 0 0.5px rgba(0, 0, 0, 0.1), 0 2px 6px rgba(0, 0, 0, 0.06), 0 8px 20px rgba(0, 0, 0, 0.1);
+  --code: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --surface: #2b2b2e;
+    --text: #f2f2f3;
+    --muted: #9d9da3;
+    --soft: #37373b;
+    --hairline: rgba(255, 255, 255, 0.1);
+    --hover: rgba(255, 255, 255, 0.07);
+    --press: rgba(255, 255, 255, 0.12);
+    --accent: #8197ff;
+    --danger: #ff6b63;
+    --shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.12), 0 2px 6px rgba(0, 0, 0, 0.3), 0 8px 20px rgba(0, 0, 0, 0.4);
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; margin: 0; }
+/* Only the root hides overflow. Set on body as well, it would stop propagating to the viewport and
+   clip body's own box, cutting off the ⋯ menu, which is positioned outside the toolbar's flow. */
+html { background: transparent; overflow: hidden; }
+/* The margins hold the whole shadow; a clipped shadow shows as a hard grey box around the card. */
+body {
+  background: transparent;
+  padding: 12px 18px 24px;
+  font: 13px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: default;
+}
+.stage { position: relative; display: inline-block; vertical-align: top; }
+.card { background: var(--surface); box-shadow: var(--shadow); }
+svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+
+button, select, textarea { font: inherit; color: inherit; }
+button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 0; background: none; border-radius: 8px; cursor: default; }
+button:hover { background: var(--hover); }
+button:active { background: var(--press); }
+button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.icon-button { width: 30px; height: 30px; padding: 0; color: var(--text); }
+.icon-button[disabled] { opacity: 0.35; pointer-events: none; }
+
+/* Toolbar */
+.bar { display: none; align-items: center; gap: 2px; padding: 4px; border-radius: 12px; white-space: nowrap; cursor: grab; }
+[data-mode="bar"] .bar { display: inline-flex; }
+.bar-skills { display: flex; gap: 2px; }
+.skill { height: 32px; padding: 0 10px 0 9px; font-weight: 500; letter-spacing: 0.1px; }
+.skill.done svg { color: #1f9d55; }
+.divider { width: 1px; height: 16px; margin: 0 4px; background: var(--hairline); }
+.more-button[aria-expanded="true"] { background: var(--press); }
+
+/* ⋯ menu, opened below the more button */
+.menu { display: none; position: absolute; min-width: 190px; padding: 6px; border-radius: 12px; z-index: 1; }
+[data-mode="bar"][data-menu="open"] .menu { display: block; }
+.menu-item { display: flex; width: 100%; justify-content: flex-start; height: 34px; padding: 0 10px; gap: 10px; white-space: nowrap; }
+.menu-item.plain { padding-left: 12px; }
+.menu-divider { height: 1px; margin: 6px 8px; background: var(--hairline); }
+.menu-skills:empty + .menu-divider { display: none; }
+
+/* Result panel */
+.panel { display: none; flex-direction: column; width: 420px; border-radius: 14px; overflow: hidden; }
+[data-mode="panel"] .panel { display: flex; }
+.panel-head { display: flex; align-items: center; gap: 2px; height: 44px; padding: 0 6px 0 14px; cursor: grab; }
+[data-dragging="true"], [data-dragging="true"] * { cursor: grabbing !important; }
+.panel-icon { display: inline-flex; color: var(--accent); margin-right: 6px; }
+.panel-title { font-size: 13.5px; font-weight: 600; white-space: nowrap; }
+.panel-app { min-width: 0; margin-left: 8px; color: var(--muted); font-size: 12px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.spacer { flex: 1; }
+/* Drawn by us rather than as a native pop-up button; the list that opens is still the system menu. */
+.panel-language {
+  display: none; height: 26px; max-width: 120px; margin-right: 4px; padding: 0 24px 0 10px;
+  border: 0; border-radius: 7px; outline: 0; -webkit-appearance: none; appearance: none;
+  background: var(--soft) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a8a8e' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") no-repeat right 7px center / 12px 12px;
+  color: var(--text); font-size: 12px; font-weight: 500; line-height: 26px; cursor: default;
+  text-overflow: ellipsis; white-space: nowrap; overflow: hidden;
+}
+.panel-language:hover { background-color: var(--press); }
+[data-kind="translate"] .panel-language { display: inline-block; }
+.tool { width: 28px; height: 28px; color: var(--muted); }
+.tool:hover { color: var(--text); }
+.tool[aria-pressed="true"] { color: var(--accent); background: var(--hover); }
+.tool.done { color: #1f9d55; }
+[data-kind="ask"] .tool[data-tool="retry"] { display: none; }
+
+.panel-body { padding: 0 16px 14px; max-height: 340px; overflow-y: auto; overscroll-behavior: contain; }
+.panel-body::-webkit-scrollbar { width: 8px; }
+.panel-body::-webkit-scrollbar-thumb { background: var(--hairline); border-radius: 4px; border: 2px solid var(--surface); }
+.source {
+  padding: 7px 10px; border-radius: 8px; background: var(--soft); color: var(--muted); font-size: 12px; line-height: 1.5;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-wrap; word-break: break-word;
+}
+.source.expanded { display: block; -webkit-line-clamp: unset; }
+.result { margin-top: 10px; }
+[data-kind="ask"] .result { display: none; }
+.turn { margin-top: 12px; }
+.question { display: inline-block; max-width: 100%; padding: 6px 10px; border-radius: 10px; background: var(--soft); white-space: pre-wrap; word-break: break-word; }
+.answer { margin-top: 8px; }
+
+.pending::after { content: ""; display: inline-block; width: 18px; height: 6px; margin-left: 2px;
+  background: radial-gradient(circle, var(--muted) 2px, transparent 2.5px) 0 0 / 6px 6px repeat-x;
+  animation: pending 1s steps(4) infinite; vertical-align: middle; }
+.pending:empty::before { content: attr(data-pending); color: var(--muted); }
+@keyframes pending { from { width: 0 } to { width: 24px } }
+.failure { color: var(--danger); }
+.failure small { display: block; margin-top: 2px; color: var(--muted); font-size: 11.5px; word-break: break-word; }
+.failure button { margin-top: 6px; height: 26px; padding: 0 10px; background: var(--soft); color: var(--text); }
+
+.composer { display: none; align-items: flex-end; gap: 6px; padding: 8px 10px 10px 14px; border-top: 1px solid var(--hairline); }
+[data-kind="ask"] .composer, [data-composer="shown"] .composer { display: flex; }
+.composer textarea {
+  flex: 1; min-height: 22px; max-height: 96px; padding: 4px 0; border: 0; outline: 0; resize: none; background: transparent;
+  line-height: 1.5; user-select: text; -webkit-user-select: text; cursor: text;
+}
+.composer textarea::placeholder { color: var(--muted); }
+.send { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: #fff; }
+.send:hover { background: var(--accent); filter: brightness(1.08); }
+.send[disabled] { opacity: 0.35; }
+
+/* Model output */
+.markdown { font-size: 13.5px; line-height: 1.65; user-select: text; -webkit-user-select: text; cursor: text; word-break: break-word; }
+.markdown > * + * { margin-top: 0.6em; }
+.markdown h1, .markdown h2, .markdown h3, .markdown h4 { font-size: 14px; font-weight: 600; }
+.markdown ul, .markdown ol { padding-left: 1.4em; }
+.markdown li + li { margin-top: 0.2em; }
+.markdown code { font-family: var(--code); font-size: 12px; padding: 1px 4px; border-radius: 4px; background: var(--soft); }
+.markdown pre { padding: 8px 10px; border-radius: 8px; background: var(--soft); overflow-x: auto; }
+.markdown pre code { padding: 0; background: none; font-size: 12px; line-height: 1.5; }
+.markdown blockquote { padding-left: 10px; border-left: 3px solid var(--hairline); color: var(--muted); }
+.markdown a { color: var(--accent); text-decoration: none; cursor: pointer; }
+.markdown a:hover { text-decoration: underline; }
+.markdown table { border-collapse: collapse; font-size: 12.5px; }
+.markdown th, .markdown td { padding: 4px 8px; border: 1px solid var(--hairline); text-align: left; vertical-align: top; }
+.markdown th { background: var(--soft); font-weight: 600; }
+.markdown hr { border: 0; border-top: 1px solid var(--hairline); }

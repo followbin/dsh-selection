@@ -1,0 +1,10 @@
+{
+  "name": "selection-hook",
+  "version": "2.1.2",
+  "private": true,
+  "type": "commonjs",
+  "main": "index.js",
+  "types": "index.d.ts",
+  "license": "MIT",
+  "description": "Vendored from selection-hook@2.1.2 (https://github.com/0xfullex/selection-hook) with prebuilds for darwin-arm64, darwin-x64, win32-x64, win32-arm64."
+}

@@ -1,0 +1,4 @@
+- insert:
+    - id: dsh-selection
+      name: dsh-selection
+      config: {}

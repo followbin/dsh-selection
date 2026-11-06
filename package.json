@@ -1,0 +1,88 @@
+{
+  "name": "dsh-selection",
+  "version": "0.1.0",
+  "description": "Select text in any app and let DSH translate, summarize, explain, answer or read it aloud.",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "selection",
+    "translate",
+    "popclip"
+  ],
+  "license": "MIT",
+  "author": "followbin",
+  "homepage": "https://github.com/followbin/dsh-selection#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/followbin/dsh-selection.git"
+  },
+  "bugs": {
+    "url": "https://github.com/followbin/dsh-selection/issues"
+  },
+  "type": "module",
+  "main": "./index.js",
+  "icon": "./icon.svg",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "index.js",
+    "client.js",
+    "cordis.patch.yml",
+    "icon.svg",
+    "locale/*.json",
+    "src",
+    "ui",
+    "vendor",
+    "README.md",
+    "README.zh-CN.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md"
+  ],
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "selftest": "ELECTRON_RUN_AS_NODE=1 \"/Applications/DeepSeek Harness.app/Contents/MacOS/DeepSeek Harness\" scripts/selftest.mjs",
+    "dev": "ELECTRON_RUN_AS_NODE=1 \"/Applications/DeepSeek Harness.app/Contents/MacOS/DeepSeek Harness\" scripts/dev-host.mjs",
+    "vendor:selection-hook": "node scripts/vendor-selection-hook.mjs"
+  },
+  "dependencies": {
+    "@webviewjs/webview": "0.6.0"
+  },
+  "optionalDependencies": {
+    "@koromix/koffi-darwin-arm64": "3.3.6",
+    "@koromix/koffi-darwin-x64": "3.3.6",
+    "@koromix/koffi-win32-arm64": "3.3.6",
+    "@koromix/koffi-win32-x64": "3.3.6"
+  },
+  "engines": {
+    "node": ">=24"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml",
+      "platforms": [
+        "darwin",
+        "win32"
+      ]
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true,
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-locale"
+      ]
+    }
+  },
+  "devDependencies": {
+    "jsdom": "26.1.0",
+    "react": "19.1.10",
+    "react-dom": "19.1.10"
+  }
+}

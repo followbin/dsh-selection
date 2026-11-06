@@ -1,0 +1,52 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:">
+<title>DSH Selection</title>
+<link rel="stylesheet" href="toolbar.css">
+</head>
+<body data-mode="hidden">
+  <div class="stage">
+    <div class="card bar" role="toolbar">
+      <div class="bar-skills"></div>
+      <span class="divider" aria-hidden="true"></span>
+      <button type="button" class="icon-button more-button" data-i18n-label="more" aria-haspopup="menu" aria-expanded="false"></button>
+    </div>
+
+    <div class="card menu" role="menu">
+      <div class="menu-skills"></div>
+      <div class="menu-divider" aria-hidden="true"></div>
+      <button type="button" class="menu-item plain" role="menuitem" data-menu-action="disable-app" data-i18n="disableApp"></button>
+      <button type="button" class="menu-item plain" role="menuitem" data-menu-action="settings" data-i18n="settings"></button>
+    </div>
+
+    <section class="card panel" aria-live="polite">
+      <header class="panel-head">
+        <span class="panel-icon"></span>
+        <h1 class="panel-title"></h1>
+        <span class="panel-app"></span>
+        <span class="spacer"></span>
+        <select class="panel-language" data-i18n-label="translateTo"></select>
+        <button type="button" class="icon-button tool" data-tool="pin" data-i18n-label="pin" aria-pressed="false"></button>
+        <button type="button" class="icon-button tool" data-tool="copy" data-i18n-label="copyResult"></button>
+        <button type="button" class="icon-button tool" data-tool="retry" data-i18n-label="retry"></button>
+        <button type="button" class="icon-button tool" data-tool="close" data-i18n-label="close"></button>
+      </header>
+      <div class="panel-body">
+        <p class="source" title=""></p>
+        <div class="result markdown"></div>
+        <div class="thread"></div>
+      </div>
+      <form class="composer">
+        <textarea rows="1" maxlength="2000" data-i18n-placeholder="askPlaceholder"></textarea>
+        <button type="submit" class="icon-button send" data-i18n-label="send"></button>
+      </form>
+    </section>
+  </div>
+<script src="icons.js"></script>
+<script src="markdown.js"></script>
+<script src="toolbar.js"></script>
+</body>
+</html>
