@@ -8,15 +8,16 @@ const selection = (top, bottom, precise = true) => ({ x: 700, y: bottom, top, pr
 
 describe('placing the overlay', () => {
   test('below the selection when there is room, free to grow to the bottom of the screen', () => {
-    assert.deepEqual(place(selection(200, 220), 280, SCREEN), { top: 228, room: FLOOR - 228 })
+    assert.deepEqual(place(selection(200, 220), 280, SCREEN), { top: 228, room: FLOOR - 228, fill: false })
     assert.equal(place(selection(200, 220, false), 280, SCREEN).top, 238, 'a mouse anchor keeps more distance')
-    assert.deepEqual(place(selection(600, 660), 280, SCREEN), { top: 668, room: FLOOR - 668 }, 'just enough room is enough')
+    assert.deepEqual(place(selection(600, 660), 280, SCREEN), { top: 668, room: FLOOR - 668, fill: false }, 'just enough room is enough')
   })
 
-  test('just above the selection otherwise, growing down to it and no further', () => {
-    const { top, room } = place(selection(840, 860), 280, SCREEN)
+  test('right above the selection otherwise, at full height from the start', () => {
+    const { top, room, fill } = place(selection(840, 860), 280, SCREEN)
     assert.equal(top, 840 - 8 - 280)
-    assert.equal(top + room, 840 - 8, 'at full height it ends where the selection starts')
+    assert.equal(top + room, 840 - 8, 'its bottom edge meets the selection')
+    assert.equal(fill, true, 'so the text fills it from the top and nothing moves')
   })
 
   test('a toolbar that does not fit below sits right above the selection', () => {
@@ -24,15 +25,16 @@ describe('placing the overlay', () => {
   })
 
   test('a selection filling the screen is covered rather than the card squeezed', () => {
-    const { top, room } = place(selection(20, 940), 280, SCREEN)
+    const { top, room, fill } = place(selection(20, 940), 280, SCREEN)
     assert.equal(top, 6)
     assert.equal(room, FLOOR - 6)
+    assert.equal(fill, false)
   })
 
   test('the room below a dragged card ends at the bottom of its screen', () => {
     assert.equal(roomBelow(700, SCREEN), FLOOR - 700)
     assert.equal(roomBelow(700, null), Infinity)
-    assert.deepEqual(place(selection(700, 720), 280, null), { top: 728, room: Infinity })
+    assert.deepEqual(place(selection(700, 720), 280, null), { top: 728, room: Infinity, fill: false })
   })
 
   test('cards start at the selection end and move left or up only as far as the screen requires', () => {
@@ -52,7 +54,7 @@ describe('placing the overlay', () => {
 
   test('displays at negative coordinates work the same way', () => {
     const above = { x: -204, y: -1080, width: 1920, height: 1080 }
-    assert.deepEqual(place({ x: 0, y: -900, top: -920, precise: true }, 280, above), { top: -892, room: -6 + 892 })
+    assert.deepEqual(place({ x: 0, y: -900, top: -920, precise: true }, 280, above), { top: -892, room: -6 + 892, fill: false })
     assert.equal(fitWindow({ origin: { x: -500, y: -1200 }, layout: { width: 100, height: 50, primary: { x: 0, y: 0, width: 100, height: 50 }, hits: [] }, screen: above }).x, -198)
   })
 })

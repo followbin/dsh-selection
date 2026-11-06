@@ -98,6 +98,8 @@ button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); o
 [data-kind="ask"] .tool[data-tool="retry"] { display: none; }
 
 .panel-body { flex: 0 1 auto; min-height: 0; padding: 0 16px 14px; max-height: 340px; overflow-y: auto; overscroll-behavior: contain; }
+[data-fill] .panel { height: var(--room); }
+[data-fill] .panel-body { flex-grow: 1; max-height: none; }
 .panel-body::-webkit-scrollbar { width: 8px; }
 .panel-body::-webkit-scrollbar-thumb { background: var(--hairline); border-radius: 4px; border: 2px solid var(--surface); }
 .source {

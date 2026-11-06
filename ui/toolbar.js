@@ -251,9 +251,15 @@
       // A skill run from the ⋯ menu confirms on the ⋯ button: the menu has closed by then.
       flashDone(els.barSkills.querySelector(`[data-skill="${skillId}"]`) || els.more, t.copied)
     },
-    /** How tall the panel may grow before it scrolls inside, from the worker's placement. */
-    setRoom(px) {
-      body.style.setProperty('--room', Number.isFinite(px) && px > 0 ? `${px}px` : 'none')
+    /**
+     * How tall the panel may grow before it scrolls inside, from the worker's placement. With `fill`
+     * it takes that height at once: it sits above the selection, its bottom edge at the selection.
+     */
+    setRoom(px, fill) {
+      const limited = Number.isFinite(px) && px > 0
+      body.style.setProperty('--room', limited ? `${px}px` : 'none')
+      if (limited && fill) body.dataset.fill = 'true'
+      else delete body.dataset.fill
       queueSize()
     },
     reset() {

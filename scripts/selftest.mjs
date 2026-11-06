@@ -93,12 +93,13 @@ const after = overlay.bounds
 const frame = overlay.inspect().frame
 report.drag = { before, after, frame }
 
-// Near the bottom of the screen the panel goes just above the selection, keeps its top edge while the
-// answer streams in (the text being read does not move) and scrolls rather than covering the selection.
+// Near the bottom of the screen the panel goes right above the selection at its full height, so its
+// bottom edge meets the selection from the start and nothing moves while the answer streams in.
 overlay.showBar({ x: 640, y: 860, top: 840, precise: true })
 overlay.showPanel({ skill: skills.find((skill) => skill.id === 'explain'), text: '靠近屏幕底部的选区', app: 'selftest', languages: [] })
 overlay.begin('r3', {})
 await sleep(200)
+const opened = await probe()
 const tops = [overlay.bounds.y]
 for (let i = 0; i < 12; i += 1) {
   overlay.append('r3', `第 ${i + 1} 段：一段足够长的文字，让面板一直往下长，直到出现滚动条。\n\n`)
@@ -109,7 +110,13 @@ overlay.done('r3')
 await sleep(300)
 tops.push(overlay.bounds.y)
 const grown = await probe()
-report.growth = { tops: [...new Set(tops)], selectionTop: 840, cardTop: overlay.bounds.y + 12, cardBottom: overlay.bounds.y + 12 + grown.card.height }
+report.growth = {
+  tops: [...new Set(tops)],
+  selectionTop: 840,
+  cardTop: overlay.bounds.y + 12,
+  openedBottom: overlay.bounds.y + 12 + opened.card.height,
+  cardBottom: overlay.bounds.y + 12 + grown.card.height,
+}
 
 if (interactive) {
   overlay.showBar({ x: 640, y: 260, top: 240, precise: false })
@@ -144,8 +151,9 @@ for (const [name, step] of Object.entries(report.steps)) {
 }
 if (report.steps.menu.layout && report.steps.menu.layout.viewport.height <= bar.layout.viewport.height) problems.push('window did not grow for the ⋯ menu')
 if (report.growth.tops.length !== 1) problems.push(`the panel moved while the answer streamed in: tops ${report.growth.tops.join(', ')}`)
-if (report.growth.cardBottom > 840 - 8) problems.push(`the panel covers the selection: its bottom is at ${report.growth.cardBottom}`)
-if (report.growth.cardTop < 840 - 8 - 280 - 1) problems.push(`the panel sits too far above the selection: its top is at ${report.growth.cardTop}`)
+for (const edge of ['openedBottom', 'cardBottom']) {
+  if (Math.abs(report.growth[edge] - (840 - 8)) > 1) problems.push(`the panel above the selection should end at it (832): ${edge} ${report.growth[edge]}`)
+}
 if (bar.bounds.x !== 640 - 18) problems.push(`the toolbar does not start where the selection ends: x ${bar.bounds.x}`)
 const asked = report.steps.ask.layout
 const question = asked?.questions?.[0]

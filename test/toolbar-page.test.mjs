@@ -1382,3 +1382,22 @@ describe('keys and confirmations', () => {
     assert.notEqual(iconOf(page, page.$('.more-button')), 'check')
   })
 })
+
+describe('room from the worker', () => {
+  test('the panel is held to its room, and fills it when it sits above the selection', async () => {
+    const page = loadPage()
+    await openPanel(page, SKILL.translate)
+    const body = page.document.body
+    page.bar.setRoom(280, true)
+    assert.equal(body.style.getPropertyValue('--room'), '280px')
+    assert.equal(body.dataset.fill, 'true')
+    page.bar.setRoom(500, false)
+    assert.equal(body.style.getPropertyValue('--room'), '500px')
+    assert.equal(body.dataset.fill, undefined, 'below the selection it grows as it fills')
+    page.bar.setRoom(null, true)
+    assert.equal(body.style.getPropertyValue('--room'), 'none')
+    assert.equal(body.dataset.fill, undefined, 'nothing to fill without a room')
+    await settle()
+    assert.ok(sizeReports(page).length > 0, 'the window follows the new size')
+  })
+})

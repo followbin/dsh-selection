@@ -74,7 +74,7 @@ export async function createOverlay({ onMessage, log }) {
   let anchor = null
   let placement = null
   let bounds = null
-  // How tall the panel was last allowed to grow, as told to the page.
+  // How tall the panel was last allowed to grow, and whether to fill that at once, as told to the page.
   let room = null
   // Once the user drags the window it stays where they put it: later size changes keep its top-left.
   let moved = false
@@ -149,11 +149,12 @@ export async function createOverlay({ onMessage, log }) {
   }
 
   /** The panel scrolls inside instead of growing past its room, so the window never has to move. */
-  function setRoom(next) {
+  function setRoom(next, fill = false) {
     const value = Number.isFinite(next) ? Math.floor(next) : null
-    if (mode !== 'panel' || value === room) return
-    room = value
-    call('setRoom', value)
+    const key = `${value}/${fill}`
+    if (mode !== 'panel' || key === room) return
+    room = key
+    call('setRoom', value, fill)
   }
 
   function resize(report) {
@@ -166,7 +167,7 @@ export async function createOverlay({ onMessage, log }) {
     mode = nextMode
     setPump(PUMP_VISIBLE_MS)
     placement = place(anchor, minRoom, screenAt(anchor))
-    setRoom(placement.room)
+    setRoom(placement.room, placement.fill)
     apply()
     overlayWindow.showInactive()
   }
