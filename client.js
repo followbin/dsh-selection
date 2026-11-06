@@ -297,7 +297,8 @@ window.__ModuleLoader__.load({
       .dss-tile { padding: 12px 14px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 12px; background: var(--dsw-alias-bg-layer-1); }
       .dss-tile-value { font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
       .dss-tile-label { margin-top: 2px; font-size: 12px; color: var(--dsw-alias-label-secondary); }
-      .dss-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+      .dss-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 13px; }
+      .dss-table th:first-child { width: 46%; }
       .dss-table th, .dss-table td { padding: 9px 16px; text-align: right; border-top: 1px solid var(--dsw-alias-border-l1); font-variant-numeric: tabular-nums; }
       .dss-table th:first-child, .dss-table td:first-child { text-align: left; }
       .dss-table thead th { border-top: 0; font-size: 12px; font-weight: 500; color: var(--dsw-alias-label-secondary); }
