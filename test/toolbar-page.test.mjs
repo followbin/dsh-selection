@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { afterEach, beforeEach, describe, mock, test } from 'node:test'
 import { JSDOM, VirtualConsole } from 'jsdom'
 import { pageHtml } from '../src/worker/page.mjs'
@@ -1414,5 +1415,32 @@ describe('panels are separate', () => {
     assert.equal(page.$('.composer textarea').value, '')
     keydown(page, { key: 'Enter' })
     assert.deepEqual(sent(page), [], 'Enter sends nothing')
+  })
+})
+
+describe('hover', () => {
+  test('hover styles wait for the pointer to move over the page after each show', async () => {
+    const page = loadPage()
+    const moved = () => 'pointer' in page.document.body.dataset
+    await openToolbar(page)
+    assert.equal(moved(), false, 'a button left hovered when the window hid does not light up')
+    pointer(page, 'pointermove', '.bar')
+    assert.equal(moved(), true)
+    page.bar.showBar()
+    assert.equal(moved(), false)
+    pointer(page, 'pointermove', '.bar')
+    await openPanel(page, SKILL.translate)
+    assert.equal(moved(), false)
+    pointer(page, 'pointermove', '.panel-head')
+    page.bar.reset()
+    assert.equal(moved(), false)
+  })
+
+  test('every hover rule in the stylesheet waits for that movement', () => {
+    const css = readFileSync(new URL('../ui/toolbar.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
+    const selectors = [...css.matchAll(/([^{}]+)\{/g)].flatMap((match) => match[1].split(',')).map((selector) => selector.trim())
+    const hovering = selectors.filter((selector) => selector.includes(':hover'))
+    assert.ok(hovering.length >= 5)
+    assert.deepEqual(hovering.filter((selector) => !selector.startsWith('[data-pointer]')), [])
   })
 })

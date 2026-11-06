@@ -156,6 +156,7 @@
       queueSize()
     },
     showBar() {
+      delete body.dataset.pointer
       body.dataset.mode = 'bar'
       setMenu(false)
     },
@@ -163,6 +164,7 @@
       if (body.dataset.mode === 'bar') setMenu(Boolean(open))
     },
     showPanel({ skill, text, app, languages, translateTarget }) {
+      delete body.dataset.pointer
       body.dataset.mode = 'panel'
       body.dataset.menu = 'closed'
       body.dataset.kind = skill.kind === 'ask' ? 'ask' : skill.id === 'translate' ? 'translate' : 'prompt'
@@ -262,6 +264,7 @@
       queueSize()
     },
     reset() {
+      delete body.dataset.pointer
       body.dataset.mode = 'hidden'
       body.dataset.menu = 'closed'
       if (document.activeElement) document.activeElement.blur()
@@ -472,6 +475,13 @@
   // Clicking into the answer lets the panel take the keyboard, so ⌘C copies a selected part of it.
   els.panelBody.addEventListener('pointerdown', () => {
     if (body.dataset.mode === 'panel') post({ type: 'keyboard', needed: true })
+  })
+
+  // WebKit keeps :hover on whatever was under the pointer when it last saw one, through hiding and
+  // showing the window, and this process is never the active app, so a pointer that does not move
+  // over the page is not tracked. Hover styles therefore wait for a real movement after each show.
+  document.addEventListener('pointermove', () => {
+    if (!('pointer' in body.dataset)) body.dataset.pointer = ''
   })
 
   // Dropping a link or file would navigate the view away from this page.
