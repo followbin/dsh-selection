@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { existsSync, mkdtempSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Readable } from 'node:stream'
@@ -67,6 +67,12 @@ describe('plugin entry', () => {
   test('declares its name and the DSH services it needs', () => {
     assert.equal(plugin.name, 'dsh-selection')
     assert.deepEqual(plugin.inject, ['webServer', 'connection'])
+  })
+
+  test('the bundle patch loads the plugin by its npm package name', () => {
+    const { name } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
+    const patch = readFileSync(new URL('../cordis.patch.yml', import.meta.url), 'utf8')
+    assert.match(patch, new RegExp(`^\\s+name: '${name}'$`, 'm'))
   })
 
   test('mounts the settings API under its route, outside DSH Desktop without the toolbar', async () => {

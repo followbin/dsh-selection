@@ -11,7 +11,7 @@ Select text in any app and a small toolbar appears next to it: translate, summar
 You need DSH Desktop 0.2.2 or later on macOS 14 or later. Windows support is written but not tested yet; see [Known limitations](#known-limitations).
 
 1. In DSH, open **Plugins** in the sidebar and click **Add plugin**.
-2. Enter `dsh-selection` and click **Install**.
+2. Enter `@followbin/dsh-selection` and click **Install**.
 3. When the dialog says **Installed**, click **Enable now**.
 4. macOS asks whether "DeepSeek Harness" may control your computer using accessibility features. Choose *Open System Settings* and switch DeepSeek Harness on ([why](#permissions-macos)).
 
@@ -91,8 +91,8 @@ Settings are stored in `selection/settings.json` under the DSH data directory.
 
 ## Troubleshooting
 
-- **"Cannot access GitHub" while installing**: enter the package name `dsh-selection` instead of the GitHub address.
-- **Installed, but no toolbar**: on the **Plugins** page, check that dsh-selection is switched on; closing the install dialog without **Enable now** leaves it off. If DSH says a change takes effect after a restart, restart DSH.
+- **"Cannot access GitHub" while installing**: enter the package name `@followbin/dsh-selection` instead of the GitHub address.
+- **Installed, but no toolbar**: on the **Plugins** page, check that the plugin is switched on; closing the install dialog without **Enable now** leaves it off. If DSH says a change takes effect after a restart, restart DSH.
 - **No toolbar on macOS**: check System Settings → Privacy & Security → Accessibility for DeepSeek Harness. The settings page shows a banner while the permission is missing.
 - **No toolbar in one app**: check the disabled apps list. Some apps expose nothing to accessibility APIs; keep "Fall back to copying" on.
 - **Model errors**: use **Test** on the settings page. "No model" means DSH has no usable model yet; sign in or add an API key in DSH.

@@ -16,6 +16,7 @@ import { createSelectionService } from '../src/host/service.mjs'
 import { LANGUAGES, LIMITS, defaultSettings } from '../src/host/settings.mjs'
 
 const CLIENT = fileURLToPath(new URL('../client.js', import.meta.url))
+const PACKAGE = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'))
 const ORIGIN = 'http://127.0.0.1:4100'
 const API = '/dsh-selection/api'
 const NS = 'dshSelection'
@@ -535,9 +536,9 @@ afterEach(async () => {
 // ---------- Tests ----------
 
 describe('registration', () => {
-  test('client.js registers one module that needs only React and asks DSH for slots and locale', async () => {
+  test('client.js registers one module under the package name, needs only React and asks DSH for slots and locale', async () => {
     const page = await openPage()
-    assert.equal(page.client.id, 'dsh-selection')
+    assert.equal(page.client.id, PACKAGE.name, 'DSH looks the client up by the npm package name')
     assert.deepEqual(page.client.required, ['react'])
     assert.deepEqual(page.client.plugin.inject, ['slots', 'locale'])
     assert.deepEqual(page.ctx.effects.map((effect) => effect.label), [

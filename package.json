@@ -1,5 +1,5 @@
 {
-  "name": "dsh-selection",
+  "name": "@followbin/dsh-selection",
   "version": "0.1.0",
   "description": "Select text in any app and let DSH translate, summarize, explain, answer or read it aloud.",
   "keywords": [
@@ -19,6 +19,9 @@
   },
   "bugs": {
     "url": "https://github.com/followbin/dsh-selection/issues"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "type": "module",
   "main": "./index.js",

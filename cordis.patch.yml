@@ -1,4 +1,4 @@
 - insert:
     - id: dsh-selection
-      name: dsh-selection
+      name: '@followbin/dsh-selection'
       config: {}

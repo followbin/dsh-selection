@@ -1,7 +1,8 @@
 // Client half: the settings page inside DSH, plus the sidebar entry that opens it.
 // A plain module for DSH's module loader (no build step); talks to the Host over /dsh-selection/api.
+// DSH finds this module by the npm package name, so `id` must be that name.
 window.__ModuleLoader__.load({
-  id: 'dsh-selection',
+  id: '@followbin/dsh-selection',
   factory(require) {
     const React = require('react')
     const h = React.createElement
