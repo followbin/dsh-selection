@@ -8,12 +8,20 @@ Select text in any app and a small toolbar appears next to it: translate, summar
 
 ## Install
 
-You need DSH Desktop 0.2.2 or later on macOS 14 or later. Windows support is written but not tested yet; see [Known limitations](#known-limitations).
+You need DSH Desktop 0.2.2 or later on macOS 14 or later. Windows support is written but not tested yet; see [Known limitations](#known-limitations). The screenshots below show DSH in Chinese; the English interface is laid out the same way.
 
 1. In DSH, open **Plugins** in the sidebar and click **Add plugin**.
 2. Enter `@followbin/dsh-selection` and click **Install**.
+
+   <img src="docs/images/zh/install-add.webp" alt="The Add plugin dialog with @followbin/dsh-selection entered" width="430">
+
 3. When the dialog says **Installed**, click **Enable now**.
-4. macOS asks whether "DeepSeek Harness" may control your computer using accessibility features. Choose *Open System Settings* and switch DeepSeek Harness on ([why](#permissions-macos)).
+
+   <img src="docs/images/zh/install-enable.webp" alt="The Installed dialog with its Enable now button" width="430">
+
+4. macOS asks whether "DeepSeek Harness" may control your computer using accessibility features. Choose *Open System Settings* (the highlighted default button is *Deny*) and switch DeepSeek Harness on ([why](#permissions-macos)).
+
+   <img src="docs/images/zh/install-permission.webp" alt="macOS asking whether DeepSeek Harness may use accessibility features, with Selection assistant now in DSH's sidebar" width="700">
 
 Now select some text in any app. Settings are under **Selection assistant** in DSH's sidebar.
 
@@ -131,7 +139,7 @@ After changing `src/worker/` or `ui/`, click **Restart the assistant** on the se
 | `pnpm test` | Unit tests for the Host (settings, prompts, model client, HTTP guards, worker messages), the worker's rules, the toolbar page and the settings page (the pages run in jsdom). Plain Node 20 or later is fine. |
 | `pnpm selftest` | Opens the toolbar, the ⋯ menu and both panel types, then checks native window state, layout and that the frontmost app never changes. No permission needed. Add `--interactive` to click around for 20 seconds. |
 | `pnpm dev` | Runs the real toolbar outside DSH with a demo model. Settings go to `~/.dsh/selection-dev`. On macOS the accessibility prompt is for your terminal app. |
-| `pnpm screenshots` | Redraws the images in `docs/images/` from the real toolbar page and settings page with sample text. Add `en` or `zh` for one language. Needs Google Chrome and ffmpeg. |
+| `pnpm screenshots` | Redraws the toolbar, follow-up, settings and walkthrough images in `docs/images/` from the real pages with sample text; the install screenshots are taken by hand. Add `en` or `zh` for one language. Needs Google Chrome and ffmpeg. |
 | `pnpm vendor:selection-hook [version]` | Refreshes `vendor/selection-hook` from npm. |
 
 How the pieces fit together, and why some unusual choices were made, is in [docs/architecture.md](docs/architecture.md).

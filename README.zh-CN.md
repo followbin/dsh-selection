@@ -12,8 +12,16 @@
 
 1. 在 DSH 侧边栏打开「插件」，点「添加插件」。
 2. 输入 `@followbin/dsh-selection`，点「安装」。
+
+   <img src="docs/images/zh/install-add.webp" alt="「添加插件」里填好 @followbin/dsh-selection" width="430">
+
 3. 显示「已安装」后，点「立即启用」。
-4. macOS 会询问是否允许「DeepSeek Harness」使用辅助功能控制这台电脑。点「打开系统设置」，把 DeepSeek Harness 打开（[为什么需要](#权限macos)）。
+
+   <img src="docs/images/zh/install-enable.webp" alt="安装完成，点「立即启用」" width="430">
+
+4. macOS 会询问是否允许「DeepSeek Harness」使用辅助功能控制这台电脑。点「打开系统设置」（高亮的默认按钮是「拒绝」，别直接按回车），把 DeepSeek Harness 打开（[为什么需要](#权限macos)）。
+
+   <img src="docs/images/zh/install-permission.webp" alt="macOS 请求辅助功能权限，DSH 侧边栏已出现「划词助手」" width="700">
 
 然后在任意应用里选中一段文字试试。设置在 DSH 侧边栏的「划词助手」里。
 
@@ -131,7 +139,7 @@ env ELECTRON_RUN_AS_NODE=1 "/Applications/DeepSeek Harness.app/Contents/MacOS/De
 | `pnpm test` | 单元测试：Host（设置、提示词、模型调用、HTTP 防护、worker 消息）、worker 的行为规则、工具栏页面和设置页（页面跑在 jsdom 里）。普通 Node 20 及以上就能跑。 |
 | `pnpm selftest` | 依次打开工具栏、「⋯」菜单和两种结果面板，检查原生窗口状态、布局，以及前台应用始终没变。不需要权限。加 `--interactive` 可以手动点 20 秒。 |
 | `pnpm dev` | 不经过 DSH、用演示模型运行真实的工具栏，设置存在 `~/.dsh/selection-dev`。在 macOS 上，授权弹窗针对的是你的终端应用。 |
-| `pnpm screenshots` | 用真实的工具栏页面和设置页、配上示例文字，重新生成 `docs/images/` 里的图。加 `en` 或 `zh` 只生成一种语言。需要 Google Chrome 和 ffmpeg。 |
+| `pnpm screenshots` | 用真实的工具栏页面和设置页、配上示例文字，重新生成 `docs/images/` 里的工具栏、追问、设置页截图和动图；安装步骤的截图是手工截的。加 `en` 或 `zh` 只生成一种语言。需要 Google Chrome 和 ffmpeg。 |
 | `pnpm vendor:selection-hook [版本]` | 从 npm 更新 `vendor/selection-hook`。 |
 
 各部分怎么协作、为什么有些做法不寻常，见 [docs/architecture.md](docs/architecture.md)。
