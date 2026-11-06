@@ -5,18 +5,14 @@ import { Application } from '@webviewjs/webview'
 import { dataDirectory } from '../shared/paths.mjs'
 import { createNativeWindowTweaks, plainOverlayWindow } from './native-window.mjs'
 import { pageHtml } from './page.mjs'
+import { fitWindow, planTop } from './placement.mjs'
 
 const PUMP_VISIBLE_MS = 16
 const PUMP_HIDDEN_MS = 250
 const PAGE_READY_TIMEOUT_MS = 5000
-const SCREEN_INSET = 6
-// With selection bounds the anchor is the selection's bottom edge; with only the mouse position it is
-// roughly mid-line, so keep half a line more distance.
-const GAP_PRECISE = 8
-const GAP_MOUSE = 18
-// Tallest the panel gets: header, the scrolling answer and the follow-up box at their tallest. It
-// decides whether the panel goes below the selection.
-const PANEL_MAX_HEIGHT = 500
+// Tallest the panel usually gets: header, the scrolling answer and a one-line follow-up box. The panel
+// is placed so that it can grow to this height downwards.
+const PANEL_MAX_HEIGHT = 440
 
 /**
  * Where the selection ended, in screen coordinates as selection-hook reports them.
@@ -136,38 +132,14 @@ export async function createOverlay({ onMessage, log }) {
     return { ...point, x: point.x / scale, y: point.y / scale, ...(point.top === undefined ? {} : { top: point.top / scale }) }
   }
 
-  // Below the selection when the tallest card fits there, otherwise on whichever side has more room
-  // (growing upwards from then on).
-  function plan(height) {
-    const gap = anchor.precise ? GAP_PRECISE : GAP_MOUSE
-    const screen = screenAt(anchor)
-    const below = anchor.y + gap
-    if (!screen) return { centerX: anchor.x, edgeY: below, growUp: false }
-    const roomBelow = screen.y + screen.height - SCREEN_INSET - below
-    const roomAbove = anchor.top - gap - (screen.y + SCREEN_INSET)
-    return roomBelow < height && roomAbove > roomBelow
-      ? { centerX: anchor.x, edgeY: anchor.top - gap, growUp: true }
-      : { centerX: anchor.x, edgeY: below, growUp: false }
-  }
-
   function apply() {
-    const { primary, width, height, hits } = layoutOf[mode]
-    let x = placement.centerX - primary.x - primary.width / 2
-    let y = placement.growUp ? placement.edgeY - primary.y - primary.height : placement.edgeY - primary.y
-    if (moved && bounds) ({ x, y } = bounds)
-    // Every card stays on screen as it grows, and after a drag too; when a card is taller than the
-    // screen its top edge, with the panel's controls, is the part that stays.
-    const screen = moved && bounds ? screenAt({ x: x + primary.x, y: y + primary.y }) : screenAt(anchor)
-    if (screen) {
-      const cards = hits.length ? hits : [primary]
-      const left = Math.min(...cards.map((card) => card.x))
-      const right = Math.max(...cards.map((card) => card.x + card.width))
-      const top = Math.min(...cards.map((card) => card.y))
-      const bottom = Math.max(...cards.map((card) => card.y + card.height))
-      x = Math.max(screen.x + SCREEN_INSET - left, Math.min(x, screen.x + screen.width - SCREEN_INSET - right))
-      y = Math.max(screen.y + SCREEN_INSET - top, Math.min(y, screen.y + screen.height - SCREEN_INSET - bottom))
-    }
-    const next = { x: Math.round(x), y: Math.round(y), width, height }
+    const layout = layoutOf[mode]
+    // A dragged window keeps its place; otherwise the primary card is centred under the selection.
+    const origin = moved && bounds
+      ? { x: bounds.x, y: bounds.y }
+      : { x: anchor.x - layout.primary.x - layout.primary.width / 2, y: placement.top - layout.primary.y }
+    const screen = moved && bounds ? screenAt({ x: origin.x + layout.primary.x, y: origin.y + layout.primary.y }) : screenAt(anchor)
+    const next = fitWindow({ origin, layout, screen })
     if (bounds && Object.keys(next).every((key) => next[key] === bounds[key])) return
     bounds = next
     overlayWindow.setBounds(bounds)
@@ -182,7 +154,7 @@ export async function createOverlay({ onMessage, log }) {
   function show(nextMode, expectedHeight) {
     mode = nextMode
     setPump(PUMP_VISIBLE_MS)
-    placement = plan(expectedHeight)
+    placement = { top: planTop(anchor, expectedHeight, screenAt(anchor)) }
     apply()
     overlayWindow.showInactive()
   }

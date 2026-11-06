@@ -93,6 +93,23 @@ const after = overlay.bounds
 const frame = overlay.inspect().frame
 report.drag = { before, after, frame }
 
+// Near the bottom of the screen the panel goes above the selection, and still keeps its top edge
+// while the answer streams in, so the text being read does not move.
+overlay.showBar({ x: 640, y: 860, top: 840, precise: true })
+overlay.showPanel({ skill: skills.find((skill) => skill.id === 'explain'), text: '靠近屏幕底部的选区', app: 'selftest', languages: [] })
+overlay.begin('r3', {})
+await sleep(200)
+const tops = [overlay.bounds.y]
+for (let i = 0; i < 12; i += 1) {
+  overlay.append('r3', `第 ${i + 1} 段：一段足够长的文字，让面板一直往下长，直到出现滚动条。\n\n`)
+  await sleep(80)
+  tops.push(overlay.bounds.y)
+}
+overlay.done('r3')
+await sleep(300)
+tops.push(overlay.bounds.y)
+report.growth = { tops: [...new Set(tops)], selectionTop: 840, bottom: overlay.bounds.y + overlay.bounds.height }
+
 if (interactive) {
   overlay.showBar({ x: 640, y: 260, top: 240, precise: false })
   console.log('The toolbar is near the top centre of the screen. Click around for 20 seconds…')
@@ -125,6 +142,10 @@ for (const [name, step] of Object.entries(report.steps)) {
   if (step.front !== frontBefore) problems.push(`${name}: frontmost app changed to ${step.front}`)
 }
 if (report.steps.menu.layout && report.steps.menu.layout.viewport.height <= bar.layout.viewport.height) problems.push('window did not grow for the ⋯ menu')
+if (report.growth.tops.length !== 1) problems.push(`the panel moved while the answer streamed in: tops ${report.growth.tops.join(', ')}`)
+const asked = report.steps.ask.layout
+const question = asked?.questions?.[0]
+if (!question || question.right < asked.body.right - 24 || question.left < asked.body.left + 40) problems.push('the question bubble is not on the right')
 for (const [selector, types] of Object.entries(report.clicks)) {
   const expected = EXPECTED_CLICKS[selector] ?? []
   if (types.join() !== expected.join()) problems.push(`clicking ${selector} posted [${types.join(', ')}] instead of [${expected.join(', ')}]`)

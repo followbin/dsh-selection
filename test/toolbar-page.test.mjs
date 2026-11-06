@@ -845,15 +845,25 @@ describe('streaming', () => {
       clientHeight: { configurable: true, get: () => 300 },
       scrollTop: { configurable: true, get: () => top, set: (value) => { top = value } },
     })
+    const scrollTo = (value) => {
+      top = value
+      page.$('.panel-body').dispatchEvent(new page.window.Event('scroll'))
+    }
     page.bar.begin('r1', {})
-    top = 700
+    scrollTo(700)
     page.bar.append('r1', 'More text')
     tick(RENDER_MS)
     assert.equal(top, 1000, 'follows the answer while at the bottom')
-    top = 100
+    scrollTo(100)
     page.bar.append('r1', ' and more')
     tick(RENDER_MS)
     assert.equal(top, 100, 'leaves a reader who scrolled up where they are')
+    page.bar.done('r1')
+    page.bar.begin('r2', { question: 'And then?' })
+    assert.equal(top, 1000, 'asking something goes to the end')
+    page.bar.append('r2', 'Then this.')
+    tick(RENDER_MS)
+    assert.equal(top, 1000, 'and follows the new answer')
   })
 })
 

@@ -100,18 +100,22 @@
     queueSize()
   }
 
+  // Whether the reader is at the end of the conversation. New text keeps the end in view until they
+  // scroll up; scrolling back down, or asking something, follows it again.
+  let following = true
+  const scrollToEnd = () => { els.panelBody.scrollTop = els.panelBody.scrollHeight }
+
   // Draws the answer and any failure from state, so a late batched render can never erase an error.
   function render() {
     clearTimeout(renderTimer)
     renderTimer = null
     const node = state.turn ? state.turn.querySelector('.answer') : els.result
-    const stick = els.panelBody.scrollHeight - els.panelBody.scrollTop - els.panelBody.clientHeight < 24
     node.classList.toggle('pending', state.pending)
     node.dataset.pending = t.waiting
     // Copy takes the answer from here: the node itself also holds the failure notice.
     node.dataset.text = state.text
     node.innerHTML = window.DshMarkdown.render(state.text) + (state.failure ? failureHtml(state.failure) : '')
-    if (stick) els.panelBody.scrollTop = els.panelBody.scrollHeight
+    if (following) scrollToEnd()
     queueSize()
   }
 
@@ -182,6 +186,8 @@
       clearTimeout(renderTimer)
       renderTimer = null
       state = emptyState()
+      following = true
+      els.panelBody.scrollTop = 0
       if (skill.kind === 'ask') {
         els.input.value = ''
         resizeInput()
@@ -205,6 +211,8 @@
         turn.querySelector('.question').textContent = info.question
         els.thread.append(turn)
         state.turn = turn
+        following = true
+        scrollToEnd()
       } else if (body.dataset.kind !== 'ask') {
         // The panel's own skill runs again (retry, another language), so its conversation starts over.
         els.thread.replaceChildren()
@@ -279,6 +287,8 @@
           const rect = node.getBoundingClientRect()
           return [node.dataset.tool, { x: rect.left, y: rect.top, width: rect.width, height: rect.height }]
         })),
+        body: (({ left, right }) => ({ left, right }))(els.panelBody.getBoundingClientRect()),
+        questions: [...els.thread.querySelectorAll('.question')].map((node) => (({ left, right }) => ({ left, right }))(node.getBoundingClientRect())),
       })
     },
   }
@@ -444,6 +454,10 @@
     event.stopImmediatePropagation()
     event.preventDefault()
   }, true)
+
+  els.panelBody.addEventListener('scroll', () => {
+    following = els.panelBody.scrollHeight - els.panelBody.scrollTop - els.panelBody.clientHeight < 24
+  })
 
   // Clicking into the answer lets the panel take the keyboard, so ⌘C copies a selected part of it.
   els.panelBody.addEventListener('pointerdown', () => {
