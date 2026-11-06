@@ -751,7 +751,12 @@ window.__ModuleLoader__.load({
 
       useEffect(() => events.subscribe((event, data) => {
         // The first load failed (Host not up yet); an event means it is reachable now.
-        if (!loaded.current) return void load()
+        if (!loaded.current) {
+          void load()
+          void loadModels()
+          void loadUsage()
+          return
+        }
         if (event === 'status') {
           setState((current) => (current ? { ...current, status: data } : current))
           // A new toolbar state is news; "Saved" gives way to it at once.
@@ -760,7 +765,7 @@ window.__ModuleLoader__.load({
         // Changes made elsewhere (e.g. "disable in this app") arrive here; fields being edited locally win.
         if (event === 'settings') setState((current) => (current ? { ...current, settings: { ...data, ...pending.current } } : current))
         if (event === 'usage') setUsage(data)
-      }), [load])
+      }), [load, loadModels, loadUsage])
 
       // Only the changed fields go to the Host, which merges them into its current settings, so a
       // concurrent change from the toolbar is never overwritten by a stale copy of the whole object.

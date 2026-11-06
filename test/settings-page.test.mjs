@@ -732,12 +732,20 @@ describe('loading', () => {
   })
 
   test('a page that could not reach the Host loads as soon as the Host sends an event', async () => {
-    const page = await openPage({ before: (host) => host.unreachable('GET', '/state') })
+    const page = await openPage({
+      before: (host) => {
+        host.unreachable('GET', '/state')
+        host.unreachable('GET', '/models')
+        host.unreachable('GET', '/usage')
+      },
+    })
     assert.equal(page.$$('.dss-section').length, 0)
     await page.step(() => page.host.worker.setState('running'))
     await page.step()
     assert.equal(page.$('.dss-error'), null)
     assert.ok(page.$$('.dss-section').length > 0)
+    assert.equal(page.modelHint(), fill(page.t('model.current'), { route: 'DeepSeek 账号 · DeepSeek Flash' }), 'the models came too')
+    assert.ok(page.$('.dss-tile', page.$('#dss-panel-usage')), 'and the usage')
   })
 
   test('shows the render error instead of a blank panel when the state cannot be drawn', async () => {

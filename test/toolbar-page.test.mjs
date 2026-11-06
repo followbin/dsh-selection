@@ -1401,3 +1401,18 @@ describe('room from the worker', () => {
     assert.ok(sizeReports(page).length > 0, 'the window follows the new size')
   })
 })
+
+describe('panels are separate', () => {
+  test('a follow-up typed but not sent does not follow into the next panel', async () => {
+    const page = loadPage()
+    await openPanel(page, SKILL.summarize)
+    streamAnswer(page, 'r1', 'A summary.')
+    typeQuestion(page, 'Is the second claim true?')
+    page.bar.reset()
+    await openPanel(page, SKILL.translate, { text: 'Another selection' })
+    streamAnswer(page, 'r2', 'Hello')
+    assert.equal(page.$('.composer textarea').value, '')
+    keydown(page, { key: 'Enter' })
+    assert.deepEqual(sent(page), [], 'Enter sends nothing')
+  })
+})

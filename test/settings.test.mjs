@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { after, describe, test } from 'node:test'
@@ -129,5 +129,29 @@ describe('createSettingsStore', () => {
     assert.deepEqual(saved.disabledApps, ['Terminal'])
     assert.equal(saved.enabled, false)
     assert.deepEqual(readdirSync(folder), ['settings.json'])
+  })
+
+  test('a file without read permission is never written over, and comes back to everyone once readable', {
+    skip: process.platform === 'win32' || process.getuid?.() === 0,
+  }, () => {
+    const folder = join(directory, 'denied')
+    mkdirSync(folder, { recursive: true })
+    const file = join(folder, 'settings.json')
+    writeFileSync(file, JSON.stringify({ ...defaultSettings(), enabled: false, disabledApps: ['Terminal'] }))
+    chmodSync(file, 0o000)
+    try {
+      const store = createSettingsStore({ file, log: () => {} })
+      assert.equal(store.get().enabled, true, 'defaults stand in')
+      assert.throws(() => store.update((settings) => ({ ...settings, toolbarSize: 3 })), /cannot be read/)
+      assert.throws(() => store.reset(), /cannot be read/)
+      chmodSync(file, 0o600)
+      const seen = []
+      store.onChange((settings) => seen.push(settings.enabled))
+      assert.equal(store.get().enabled, false, 'read again once it can be')
+      assert.deepEqual(seen, [false], 'and the worker is told')
+      assert.deepEqual(store.get().disabledApps, ['Terminal'], 'nothing was lost')
+    } finally {
+      chmodSync(file, 0o600)
+    }
   })
 })

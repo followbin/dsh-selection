@@ -499,3 +499,18 @@ describe('worker controller: whole text and follow-ups', () => {
     assert.equal(runs().length, 0)
   })
 })
+
+describe('worker controller: closing', () => {
+  test('closing the panel from the page stops reading aloud, as Escape does elsewhere', () => {
+    const { controller, overlay, spoken, select } = setup()
+    select()
+    controller.onPage({ type: 'skill', id: 'speak' })
+    controller.onPage({ type: 'skill', id: 'ask' })
+    overlay.key = true
+    controller.onKeyDown('Escape')
+    assert.equal(overlay.mode, 'panel', 'the page decides, as an input method may be using the key')
+    controller.onPage({ type: 'close' })
+    assert.equal(overlay.mode, 'hidden')
+    assert.equal(spoken.at(-1), 'stop')
+  })
+})

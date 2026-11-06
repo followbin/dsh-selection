@@ -118,6 +118,20 @@ report.growth = {
   cardBottom: overlay.bounds.y + 12 + grown.card.height,
 }
 
+// A panel dropped far below the screen keeps room for its answer and comes back on screen; one
+// dragged above every screen comes back with its header visible.
+overlay.drag('start', { x: 0, y: 0 })
+overlay.drag('move', { x: 0, y: 3000 })
+overlay.drag('end', { x: 0, y: 3000 })
+await sleep(400)
+const dropped = await probe()
+const droppedTop = overlay.bounds.y + 12
+overlay.drag('start', { x: 0, y: 0 })
+overlay.drag('move', { x: 0, y: -5000 })
+overlay.drag('end', { x: 0, y: -5000 })
+await sleep(400)
+report.dropped = { cardTop: droppedTop, cardHeight: dropped.card.height, raisedTop: overlay.bounds.y + 12 }
+
 if (interactive) {
   overlay.showBar({ x: 640, y: 260, top: 240, precise: false })
   console.log('The toolbar is near the top centre of the screen. Click around for 20 seconds…')
@@ -151,6 +165,10 @@ for (const [name, step] of Object.entries(report.steps)) {
 }
 if (report.steps.menu.layout && report.steps.menu.layout.viewport.height <= bar.layout.viewport.height) problems.push('window did not grow for the ⋯ menu')
 if (report.growth.tops.length !== 1) problems.push(`the panel moved while the answer streamed in: tops ${report.growth.tops.join(', ')}`)
+const mainHeight = Number(execFileSync('osascript', ['-l', 'JavaScript', '-e', 'ObjC.import("AppKit"); $.NSScreen.mainScreen.frame.size.height'], { encoding: 'utf8' }).trim())
+if (report.dropped.cardTop + report.dropped.cardHeight > mainHeight - 6 + 1) problems.push(`a panel dropped low runs off the screen: ${JSON.stringify(report.dropped)}`)
+if (report.dropped.cardHeight < 200) problems.push(`a panel dropped low has no room for its answer: ${report.dropped.cardHeight}`)
+if (report.dropped.raisedTop < 0) problems.push(`a panel dragged above the screens keeps its header off screen: ${report.dropped.raisedTop}`)
 for (const edge of ['openedBottom', 'cardBottom']) {
   if (Math.abs(report.growth[edge] - (840 - 8)) > 1) problems.push(`the panel above the selection should end at it (832): ${edge} ${report.growth[edge]}`)
 }

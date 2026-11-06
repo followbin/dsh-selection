@@ -188,11 +188,10 @@
       state = emptyState()
       following = true
       els.panelBody.scrollTop = 0
-      if (skill.kind === 'ask') {
-        els.input.value = ''
-        resizeInput()
-        setTimeout(() => els.input.focus(), 0)
-      }
+      // A question typed but not sent belongs to the earlier selection.
+      els.input.value = ''
+      resizeInput()
+      if (skill.kind === 'ask') setTimeout(() => els.input.focus(), 0)
       queueSize()
     },
     begin(requestId, info) {

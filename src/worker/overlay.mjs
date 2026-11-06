@@ -141,11 +141,17 @@ export async function createOverlay({ onMessage, log }) {
     const origin = moved && bounds
       ? { x: bounds.x, y: bounds.y }
       : { x: anchor.x - layout.primary.x, y: placement.top - layout.primary.y }
-    const screen = moved && bounds ? screenAt({ x: origin.x + layout.primary.x, y: origin.y + layout.primary.y }) : screenAt(anchor)
+    const screen = moved && bounds ? screenUnder(origin, layout) : screenAt(anchor)
     const next = fitWindow({ origin, layout, screen })
     if (bounds && Object.keys(next).every((key) => next[key] === bounds[key])) return
     bounds = next
     overlayWindow.setBounds(bounds)
+  }
+
+  /** The screen under a window's header; a window dragged off every screen belongs to the selection's. */
+  function screenUnder(origin, layout) {
+    const header = { x: origin.x + layout.primary.x + layout.primary.width / 2, y: origin.y + layout.primary.y + 12 }
+    return screenAt(header) ?? screenAt(anchor)
   }
 
   /** The panel scrolls inside instead of growing past its room, so the window never has to move. */
@@ -216,8 +222,10 @@ export async function createOverlay({ onMessage, log }) {
       overlayWindow.setBounds(bounds)
       if (phase !== 'end') return
       drag = null
-      const top = bounds.y + layoutOf[mode].primary.y
-      setRoom(roomBelow(top, screenAt({ x: bounds.x + layoutOf[mode].primary.x, y: top })))
+      // Dropped low, the panel still gets room for its answer and moves up as far as that needs.
+      const layout = layoutOf[mode]
+      setRoom(Math.max(PANEL_MIN_ROOM, roomBelow(bounds.y + layout.primary.y, screenUnder(bounds, layout))))
+      apply()
     },
     hide() {
       if (mode === 'hidden') return

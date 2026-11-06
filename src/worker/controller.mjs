@@ -160,6 +160,7 @@ export function createController({
         overlay.setKeyable(Boolean(message.needed))
         return
       case 'close':
+        speech.stop()
         return dismiss({ force: true, reason: 'close-button' })
     }
   }

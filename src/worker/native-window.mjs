@@ -260,6 +260,7 @@ function windowsTweaks(koffi) {
   const showWindow = user32.func('bool __stdcall ShowWindow(void *hwnd, int cmd)')
   const setPos = user32.func('bool __stdcall SetWindowPos(void *hwnd, intptr_t after, int x, int y, int cx, int cy, uint32_t flags)')
   const setForeground = user32.func('bool __stdcall SetForegroundWindow(void *hwnd)')
+  const getForeground = user32.func('intptr_t __stdcall GetForegroundWindow()')
   const GWL_EXSTYLE = -20
   const WS_EX_TOPMOST = 0x8n
   const WS_EX_TOOLWINDOW = 0x80n
@@ -275,6 +276,13 @@ function windowsTweaks(koffi) {
     displayBoundsAt: () => null,
     adopt(win) {
       const hwnd = win.getNativeHandle()
+      const isForeground = () => {
+        try {
+          return BigInt(getForeground()) === BigInt(hwnd)
+        } catch {
+          return false
+        }
+      }
       const base = BigInt(getLong(hwnd, GWL_EXSTYLE)) | WS_EX_TOPMOST | WS_EX_TOOLWINDOW
       setLong(hwnd, GWL_EXSTYLE, base | WS_EX_NOACTIVATE)
       return {
@@ -301,6 +309,8 @@ function windowsTweaks(koffi) {
             noActivate: (current & WS_EX_NOACTIVATE) !== 0n,
             toolWindow: (current & WS_EX_TOOLWINDOW) !== 0n,
             topmost: (current & WS_EX_TOPMOST) !== 0n,
+            // After setKeyable(true) the panel is the foreground window and gets the keystrokes.
+            isKey: isForeground(),
           }
         },
       }

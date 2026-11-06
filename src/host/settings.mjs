@@ -124,6 +124,8 @@ export function findSkill(settings, id) {
   return { ...BUILTIN_SKILLS.find((skill) => skill.id === id), enabled: entry.enabled }
 }
 
+const UNREAD_RETRY_MS = 2000
+
 /**
  * File-backed settings. Writes are atomic (temp file + rename). A file that is not valid JSON is moved
  * aside and replaced by defaults instead of blocking startup.
@@ -131,9 +133,11 @@ export function findSkill(settings, id) {
  */
 export function createSettingsStore({ file, log }) {
   const listeners = new Set()
-  // The file exists but could not be read (locked, out of descriptors). Until a read succeeds the
-  // defaults stand in, and every access tries again, so a passing error never replaces the user's settings.
+  // The file exists but could not be read (locked, no permission, out of descriptors). Until a read
+  // succeeds the defaults stand in, nothing is written over the file, and it is read again now and
+  // then; when that works, every listener (the worker among them) gets the real settings.
   let unread = false
+  let retry = null
   let current = load()
 
   function load() {
@@ -144,6 +148,11 @@ export function createSettingsStore({ file, log }) {
       if (error?.code === 'ENOENT') return defaultSettings()
       if (!unread) log?.('warn', 'settings file could not be read, using defaults for now', { error: String(error?.message ?? error) })
       unread = true
+      retry ??= setTimeout(() => {
+        retry = null
+        latest()
+      }, UNREAD_RETRY_MS)
+      retry.unref?.()
       return defaultSettings()
     }
     unread = false
@@ -157,16 +166,21 @@ export function createSettingsStore({ file, log }) {
   }
 
   function latest() {
-    if (unread) current = load()
+    if (!unread) return current
+    const next = load()
+    if (unread) return current
+    current = next
+    for (const listener of listeners) listener(current)
     return current
   }
 
   function save(next) {
+    latest()
+    if (unread) throw new Error('the settings file cannot be read right now, so it was left unchanged')
     const normalized = normalizeSettings(next)
     // A change that normalization undid, or no change at all: nothing to write or announce.
-    if (!unread && JSON.stringify(normalized) === JSON.stringify(current)) return current
+    if (JSON.stringify(normalized) === JSON.stringify(current)) return current
     writeFileAtomic(file, `${JSON.stringify(normalized, null, 2)}\n`)
-    unread = false
     current = normalized
     for (const listener of listeners) listener(current)
     return current

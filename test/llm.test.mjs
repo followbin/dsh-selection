@@ -109,6 +109,28 @@ describe('model client', () => {
     assert.deepEqual((await client.listRoutes()).map((route) => route.model), ['m1', 'm2'])
   })
 
+  test('a listing under way when DSH announces new providers is neither joined nor cached', async () => {
+    let routes = { old: ['m-old'] }
+    let release
+    const gate = new Promise((resolve) => { release = resolve })
+    const llm = {
+      listProviders: () => Object.keys(routes).map((id) => ({ id })),
+      listModels: async (provider) => {
+        const models = routes[provider].map((id) => ({ id }))
+        if (provider === 'old') await gate
+        return models
+      },
+    }
+    const client = createModelClient({ getLlm: () => llm })
+    const stale = client.listRoutes()
+    routes = { fresh: ['m-new'] }
+    client.invalidate()
+    assert.deepEqual((await client.listRoutes()).map((route) => route.model), ['m-new'], 'a new listing, not the old one')
+    release()
+    assert.deepEqual((await stale).map((route) => route.model), ['m-old'])
+    assert.deepEqual((await client.listRoutes()).map((route) => route.model), ['m-new'], 'the old result was not cached')
+  })
+
   test('only an unsupported-effort rejection is remembered, and invalidate forgets it', async () => {
     const calls = []
     let reason = 'UNSUPPORTED_REASONING_EFFORT'

@@ -32,6 +32,8 @@ export class ModelError extends Error {
 export function createModelClient({ getLlm, log }) {
   let cache = null
   let listing = null
+  // Bumped by invalidate(), so a listing already under way when DSH's providers change is not cached.
+  let generation = 0
   // Routes that reject an "off" reasoning level; without this every click would prepare the call twice.
   const withoutOff = new Set()
 
@@ -45,14 +47,14 @@ export function createModelClient({ getLlm, log }) {
   function listRoutes({ fresh = false } = {}) {
     if (!fresh && cache && Date.now() - cache.at < ROUTE_CACHE_MS) return Promise.resolve(cache.routes)
     if (!fresh && listing) return listing
-    const current = readRoutes().finally(() => {
+    const current = readRoutes(generation).finally(() => {
       if (listing === current) listing = null
     })
     listing = current
     return current
   }
 
-  async function readRoutes() {
+  async function readRoutes(started) {
     const llm = llmService()
     const providers = llm.listProviders()
     // Each provider looks up its credentials and may fetch its model list, so ask them all at once.
@@ -77,7 +79,7 @@ export function createModelClient({ getLlm, log }) {
     })
     // An empty or partial list is often minutes from being fixed (a sign-in, a provider hiccup);
     // caching it would keep answering NO_MODEL, or a fallback route, after that.
-    cache = complete && routes.length ? { at: Date.now(), routes } : null
+    if (started === generation) cache = complete && routes.length ? { at: Date.now(), routes } : null
     return routes
   }
 
@@ -169,7 +171,9 @@ export function createModelClient({ getLlm, log }) {
 
   /** Forgets what was learned about the routes, after DSH's providers or the chosen model change. */
   function invalidate() {
+    generation += 1
     cache = null
+    listing = null
     withoutOff.clear()
   }
 
