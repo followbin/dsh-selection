@@ -48,7 +48,8 @@
     "test": "node --test test/*.test.mjs",
     "selftest": "ELECTRON_RUN_AS_NODE=1 \"/Applications/DeepSeek Harness.app/Contents/MacOS/DeepSeek Harness\" scripts/selftest.mjs",
     "dev": "ELECTRON_RUN_AS_NODE=1 \"/Applications/DeepSeek Harness.app/Contents/MacOS/DeepSeek Harness\" scripts/dev-host.mjs",
-    "vendor:selection-hook": "node scripts/vendor-selection-hook.mjs"
+    "vendor:selection-hook": "node scripts/vendor-selection-hook.mjs",
+    "screenshots": "ELECTRON_RUN_AS_NODE=1 \"/Applications/DeepSeek Harness.app/Contents/MacOS/DeepSeek Harness\" scripts/screenshots.mjs"
   },
   "dependencies": {
     "@webviewjs/webview": "0.6.0"
