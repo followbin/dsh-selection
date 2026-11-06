@@ -376,7 +376,7 @@ window.__ModuleLoader__.load({
     }
 
     // One server-sent-events connection per client, shared by the page and the navigation listener.
-    // Read through fetch (like the whistle-agent panel) so it works through Desktop's request bridge.
+    // Read through fetch rather than EventSource, so it works through Desktop's request bridge.
     const events = (() => {
       const listeners = new Set()
       let controller = null
