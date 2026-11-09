@@ -341,8 +341,8 @@
     els.input.style.height = 'auto'
     const height = els.input.scrollHeight
     els.input.style.height = `${Math.min(height, 96)}px`
-    // Scrolls only past its tallest size: at fractional display scaling the text can overflow by a
-    // fraction of a pixel, and Windows would show a scrollbar for that.
+    // Scrollable only past its tallest size: at fractional display scaling one line can overflow by a
+    // fraction of a pixel, which would otherwise let it scroll.
     els.input.style.overflowY = height > 96 ? 'auto' : 'hidden'
     els.send.disabled = !els.input.value.trim()
   }

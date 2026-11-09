@@ -3,7 +3,7 @@
 ## Unreleased
 
 - Windows: no border around the toolbar and its panels; the system shadow tao gave the transparent window is off.
-- Windows: the follow-up box no longer shows scroll arrows while its text fits.
+- The follow-up box never shows a scrollbar (Windows drew one with arrow buttons); past four lines it still scrolls.
 
 ## 0.1.0 (2026-11-06)
 
