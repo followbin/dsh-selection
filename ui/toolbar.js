@@ -68,7 +68,7 @@
   })
   document.querySelectorAll('[data-i18n-placeholder]').forEach((node) => { node.placeholder = t[node.dataset.i18nPlaceholder] })
   els.more.innerHTML = icon('more')
-  els.mini.innerHTML = icon('textSelect')
+  els.mini.innerHTML = window.DSH_BRAND || icon('sparkles')
   $('[data-menu-action="disable-app"]').insertAdjacentHTML('afterbegin', icon('ban'))
   $('[data-menu-action="settings"]').insertAdjacentHTML('afterbegin', icon('settings'))
   for (const [tool, name] of [['pin', 'pin'], ['copy', 'copy'], ['retry', 'retry'], ['close', 'close']]) {

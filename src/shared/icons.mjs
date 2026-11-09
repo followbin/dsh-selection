@@ -35,10 +35,30 @@ export const ICONS = Object.freeze({
   plus: '<path d="M5 12h14"/><path d="M12 5v14"/>',
   edit: '<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/>',
   cursor: '<path d="M17 22h-1a4 4 0 0 1-4-4V6a4 4 0 0 1 4-4h1"/><path d="M7 22h1a4 4 0 0 0 4-4v-1"/><path d="M7 2h1a4 4 0 0 1 4 4v1"/>',
-  textSelect: '<path d="M5 3a2 2 0 0 0-2 2"/><path d="M19 3a2 2 0 0 1 2 2"/><path d="M21 19a2 2 0 0 1-2 2"/><path d="M5 21a2 2 0 0 1-2-2"/><path d="M9 3h1"/><path d="M9 21h1"/><path d="M14 3h1"/><path d="M14 21h1"/><path d="M3 9v1"/><path d="M21 9v1"/><path d="M3 14v1"/><path d="M21 14v1"/><path d="M7 8h10"/><path d="M7 12h10"/><path d="M7 16h6"/>',
   minimize: '<path d="m14 10 7-7"/><path d="M20 10h-6V4"/><path d="m3 21 7-7"/><path d="M4 14h6v6"/>',
   maximize: '<path d="M15 3h6v6"/><path d="m21 3-7 7"/><path d="m3 21 7-7"/><path d="M9 21H3v-6"/>',
 })
+
+const BRAND_FRAME = 'M7.5 12.5V10C7.5 8.62 8.62 7.5 10 7.5H12.5M23.5 7.5H26C27.38 7.5 28.5 8.62 28.5 10V12.5M28.5 23.5V26C28.5 27.38 27.38 28.5 26 28.5H23.5M12.5 28.5H10C8.62 28.5 7.5 27.38 7.5 26V23.5'
+const BRAND_SPARK = 'M18 10.8C18.655 14.77 21.23 17.345 25.2 18C21.23 18.655 18.655 21.23 18 25.2C17.345 21.23 14.77 18.655 10.8 18C14.77 17.345 17.345 14.77 18 10.8Z'
+
+/**
+ * The plugin's own mark, drawn for it rather than taken from Lucide: a selection frame around a spark,
+ * in the colours of DSH's plugin icons. `id` prefixes the gradient ids, which a document needs unique.
+ * The full view box keeps the margin DSH's own plugin icons have; a cropped one fits a small button.
+ */
+export function brandIcon(id, viewBox = '0 0 36 36') {
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="${viewBox}" fill="none">`
+    + `<path d="${BRAND_FRAME}" stroke="url(#${id}-frame)" stroke-width="2.4" stroke-linecap="round"/>`
+    + `<path d="${BRAND_SPARK}" fill="url(#${id}-spark)" stroke="none"/>`
+    + '<defs>'
+    + `<linearGradient id="${id}-frame" x1="7.5" y1="7.5" x2="28.5" y2="28.5" gradientUnits="userSpaceOnUse"><stop stop-color="#6AECB6"/><stop offset="1" stop-color="#37A6B1"/></linearGradient>`
+    + `<linearGradient id="${id}-spark" x1="10.8" y1="10.8" x2="25.2" y2="25.2" gradientUnits="userSpaceOnUse"><stop stop-color="#7CB7FF"/><stop offset="1" stop-color="#145AF3"/></linearGradient>`
+    + '</defs></svg>'
+}
+
+/** The same mark as a one-colour line drawing on a 24×24 grid, for DSH's sidebar. */
+export const BRAND_LINE = 'M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2M12 6.8c.47 2.87 2.33 4.73 5.2 5.2-2.87.47-4.73 2.33-5.2 5.2-.47-2.87-2.33-4.73-5.2-5.2 2.87-.47 4.73-2.33 5.2-5.2Z'
 
 /** Icons a user may pick for a custom skill. */
 export const CUSTOM_SKILL_ICONS = Object.freeze([

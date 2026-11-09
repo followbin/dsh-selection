@@ -1028,7 +1028,7 @@ window.__ModuleLoader__.load({
     }
 
     // Dashed selection frame around lines of text (Lucide "text-select", ISC).
-    const SIDEBAR_ICON = 'M5 3a2 2 0 0 0-2 2 M19 3a2 2 0 0 1 2 2 M21 19a2 2 0 0 1-2 2 M5 21a2 2 0 0 1-2-2 M9 3h1 M9 21h1 M14 3h1 M14 21h1 M3 9v1 M21 9v1 M3 14v1 M21 14v1 M7 8h10 M7 12h10 M7 16h6'
+    const SIDEBAR_ICON = 'M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2M12 6.8c.47 2.87 2.33 4.73 5.2 5.2-2.87.47-4.73 2.33-5.2 5.2-.47-2.87-2.33-4.73-5.2-5.2 2.87-.47 4.73-2.33 5.2-5.2Z'
 
     function SidebarIcon({ size = 18, active }) {
       return h('svg', {

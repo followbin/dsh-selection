@@ -6,6 +6,7 @@ import { Readable } from 'node:stream'
 import { after, describe, test } from 'node:test'
 import * as plugin from '../index.js'
 import { ROUTE } from '../src/host/http.mjs'
+import { BRAND_LINE, brandIcon } from '../src/shared/icons.mjs'
 
 // The plugin writes its settings and log under $DSH_HOME/selection.
 const home = mkdtempSync(join(tmpdir(), 'dsh-selection-plugin-'))
@@ -67,6 +68,12 @@ describe('plugin entry', () => {
   test('declares its name and the DSH services it needs', () => {
     assert.equal(plugin.name, 'dsh-selection')
     assert.deepEqual(plugin.inject, ['webServer', 'connection'])
+  })
+
+  test('the plugin icon, the sidebar entry and the mini toolbar draw the same mark', () => {
+    const read = (file) => readFileSync(new URL(`../${file}`, import.meta.url), 'utf8')
+    assert.equal(read('icon.svg'), `${brandIcon('dsh-selection')}\n`)
+    assert.ok(read('client.js').includes(`const SIDEBAR_ICON = '${BRAND_LINE}'`))
   })
 
   test('the bundle patch loads the plugin by its npm package name', () => {

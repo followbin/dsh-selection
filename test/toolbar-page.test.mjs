@@ -219,7 +219,6 @@ describe('loading', () => {
     const page = loadPage()
     const controls = {
       '.more-button': 'more',
-      '.mini-button': 'textSelect',
       '[data-menu-action="toolbar-style"]': 'minimize',
       '[data-menu-action="disable-app"]': 'ban',
       '[data-menu-action="settings"]': 'settings',
@@ -1481,6 +1480,8 @@ describe('mini toolbar', () => {
   const MINI = { ...TOOLBAR, style: 'mini' }
   const visible = (page, selector) => page.window.getComputedStyle(page.$(selector)).display !== 'none'
   const skillIds = (page, selector) => page.$$(selector).map((button) => button.dataset.skill)
+  // The mark as the page's DOM serializes it, to compare with what a button holds.
+  const brand = (page) => Object.assign(page.document.createElement('div'), { innerHTML: page.window.DSH_BRAND }).innerHTML
   // pointerout names where the pointer went; nothing means it left the window.
   const out = (page, from, to = null) => page.$(from).dispatchEvent(new page.window.MouseEvent('pointerout', { bubbles: true, relatedTarget: to && page.$(to) }))
 
@@ -1489,6 +1490,7 @@ describe('mini toolbar', () => {
     await openToolbar(page, MINI)
     assert.equal(page.body.dataset.style, 'mini')
     assert.ok(visible(page, '.mini-button'))
+    assert.equal(page.$('.mini-button').innerHTML, brand(page), 'the icon is the plugin’s mark')
     for (const selector of ['.bar-skills', '.more-button']) assert.ok(!visible(page, selector), `${selector} is hidden`)
     assert.deepEqual(skillIds(page, '.bar-skills > button'), [])
     assert.deepEqual(skillIds(page, '.menu-skills > button'), [...TOOLBAR.bar, ...TOOLBAR.more].map((skill) => skill.id))
@@ -1542,7 +1544,7 @@ describe('mini toolbar', () => {
     page.bar.flash('copy')
     assert.equal(iconOf(page, page.$('.mini-button')), 'check')
     tick(1200)
-    assert.equal(iconOf(page, page.$('.mini-button')), 'textSelect')
+    assert.equal(page.$('.mini-button').innerHTML, brand(page), 'the mark comes back after the check')
     click(page, '.mini-button')
     click(page, '[data-menu-action="toolbar-style"]')
     assert.deepEqual(sent(page), [{ type: 'menu', action: 'toolbar-style' }])

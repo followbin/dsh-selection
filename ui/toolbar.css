@@ -66,6 +66,7 @@ button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); o
 .more-button[aria-expanded="true"], .mini-button[aria-expanded="true"] { background: var(--press); }
 /* Mini toolbar: one icon, and every skill in its menu. */
 .mini-button { display: none; color: var(--accent); }
+.mini-button svg { width: 20px; height: 20px; }
 [data-style="mini"] .bar { padding: 3px; border-radius: 10px; }
 [data-style="mini"] .bar-skills, [data-style="mini"] .divider, [data-style="mini"] .more-button { display: none; }
 [data-style="mini"] .mini-button { display: inline-flex; }
