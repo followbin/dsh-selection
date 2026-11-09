@@ -1306,6 +1306,21 @@ describe('drag and drop', () => {
 })
 
 describe('follow-up questions', () => {
+  test('the follow-up box grows with its text and scrolls only past its tallest size', async () => {
+    const page = loadPage()
+    await openPanel(page, SKILL.ask)
+    const input = page.$('.composer textarea')
+    let content = 31
+    Object.defineProperty(input, 'scrollHeight', { configurable: true, get: () => content })
+    typeQuestion(page, 'One line')
+    assert.equal(input.style.height, '31px')
+    assert.equal(input.style.overflowY, 'hidden', 'no scrollbar while everything fits')
+    content = 150
+    typeQuestion(page, 'One\ntwo\nthree\nfour\nfive')
+    assert.equal(input.style.height, '96px')
+    assert.equal(input.style.overflowY, 'auto')
+  })
+
   test('a skill panel offers the follow-up box once its answer is complete', async () => {
     const page = loadPage()
     await openPanel(page, SKILL.translate)

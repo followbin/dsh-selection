@@ -1,6 +1,11 @@
 # Changelog
 
-## 0.1.0 (unreleased)
+## Unreleased
+
+- Windows: no border around the toolbar and its panels; the system shadow tao gave the transparent window is off.
+- Windows: the follow-up box no longer shows scroll arrows while its text fits.
+
+## 0.1.0 (2026-11-06)
 
 - First release: toolbar with ⋯ menu, result panel with streaming Markdown, Ask DSH chat, read aloud, search.
 - Built-in skills: Translate, Summarize, Explain, Ask DSH, Read aloud, Copy, Polish, Search; custom prompt skills.

@@ -57,6 +57,9 @@ export async function createOverlay({ onMessage, log }) {
     focused: false,
     alwaysOnTop: true,
     windowsSkipTaskbar: true,
+    // tao keeps a system shadow on undecorated windows unless told not to; on Windows it outlines the
+    // whole transparent window with a 1px border and adds hidden insets around the client area.
+    windowsUndecoratedShadow: false,
     macosHasShadow: false,
   })
   // WebView2 defaults its data folder next to the executable, i.e. inside the DSH install directory.

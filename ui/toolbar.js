@@ -339,7 +339,11 @@
 
   function resizeInput() {
     els.input.style.height = 'auto'
-    els.input.style.height = `${Math.min(els.input.scrollHeight, 96)}px`
+    const height = els.input.scrollHeight
+    els.input.style.height = `${Math.min(height, 96)}px`
+    // Scrolls only past its tallest size: at fractional display scaling the text can overflow by a
+    // fraction of a pixel, and Windows would show a scrollbar for that.
+    els.input.style.overflowY = height > 96 ? 'auto' : 'hidden'
     els.send.disabled = !els.input.value.trim()
   }
 
