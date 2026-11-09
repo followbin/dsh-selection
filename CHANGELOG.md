@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Windows has been tried on real hardware; the README no longer calls it untested.
+
 ## 0.2.2 (2026-11-09)
 
 - The settings page no longer has its own version and update row: DSH's Plugins page already shows the version and finds updates.

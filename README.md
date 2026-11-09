@@ -8,7 +8,7 @@ Select text in any app and a small toolbar appears next to it: translate, summar
 
 ## Install
 
-You need DSH Desktop 0.2.2 or later on macOS 14 or later. Windows support is written but not tested yet; see [Known limitations](#known-limitations). The screenshots below show DSH in Chinese; the English interface is laid out the same way.
+You need DSH Desktop 0.2.2 or later, on macOS 14 or later or on Windows 10/11. The screenshots below show DSH in Chinese; the English interface is laid out the same way.
 
 1. In DSH, open **Plugins** in the sidebar and click **Add plugin**.
 2. Enter `@followbin/dsh-selection` and click **Install**.
@@ -111,11 +111,10 @@ Settings are stored in `selection/settings.json` under the DSH data directory.
 
 ## Known limitations
 
-- **Windows has not been run on real hardware yet.** The code paths exist, covering hooks, WebView2, non-activating windows and SAPI speech, but expect rough edges. Windows-specific notes:
-  - with displays at different scale factors the toolbar can land on the wrong display or off the selection, and clicks on it may count as clicks outside;
-  - the transparent margin around the toolbar may take clicks instead of passing them to the app below;
-  - apps running as administrator cannot be read;
-  - Smart App Control may block unsigned native modules.
+- On Windows:
+  - apps running as administrator cannot be read, since Windows keeps ordinary processes out of them;
+  - Smart App Control may block unsigned native modules;
+  - displays with different scale factors have not been tried yet; there the toolbar might land off the selection.
 - On macOS the toolbar does not appear while secure input is on (password fields), by design of the OS.
 - The toolbar process is DSH's own Electron executable in Node mode. Electron Framework and the web view library both define an Objective-C class named `NotificationCenterDelegate`, which prints a harmless warning at start.
 - Text-to-speech uses the system voices; quality depends on what is installed.
