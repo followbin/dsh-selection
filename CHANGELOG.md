@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 (2026-11-09)
 
 - New icon, drawn for the plugin in the colours of DSH's own plugin icons: a selection frame around a spark. It marks the plugin, its sidebar entry and the mini toolbar.
 - Mini toolbar: a single icon whose menu, opened by resting the pointer on it, holds every skill. Switch between it and the full toolbar from the toolbar's menu or the settings page.
