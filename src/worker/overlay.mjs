@@ -10,6 +10,8 @@ import { fitWindow, place, roomBelow } from './placement.mjs'
 const PUMP_VISIBLE_MS = 16
 const PUMP_HIDDEN_MS = 250
 const PAGE_READY_TIMEOUT_MS = 5000
+// Pointer updates for hover: one per frame is as often as the page can draw them.
+const POINTER_INTERVAL_MS = 16
 // The least height a panel gets for its answer before it scrolls: about eight lines plus the header and
 // the follow-up box. Below the selection it may grow further, down to the bottom of the screen.
 const PANEL_MIN_ROOM = 280
@@ -79,6 +81,10 @@ export async function createOverlay({ onMessage, log }) {
   let bounds = null
   // How tall the panel was last allowed to grow, and whether to fill that at once, as told to the page.
   let room = null
+  // The pointer as passed to the page: at most once a frame, and once more when it leaves the window.
+  let pointerTimer = null
+  let pointerNext = null
+  let pointerInside = false
   // Once the user drags the window it stays where they put it: later size changes keep its top-left.
   let moved = false
   let drag = null
@@ -232,6 +238,9 @@ export async function createOverlay({ onMessage, log }) {
     },
     hide() {
       if (mode === 'hidden') return
+      clearTimeout(pointerTimer)
+      pointerTimer = null
+      pointerInside = false
       overlayWindow.hide()
       mode = 'hidden'
       placement = null
@@ -241,6 +250,23 @@ export async function createOverlay({ onMessage, log }) {
       drag = null
       call('reset')
       setPump(PUMP_HIDDEN_MS)
+    },
+    /**
+     * Passes the pointer (selection-hook coordinates) to the page while the window shows: macOS sends
+     * no mouse moves to the window of a background process, so the page draws hover from these.
+     */
+    pointer(point) {
+      if (mode === 'hidden' || !bounds) return
+      const { x, y } = toLogical(point)
+      const inside = x >= bounds.x && x < bounds.x + bounds.width && y >= bounds.y && y < bounds.y + bounds.height
+      if (!inside && !pointerInside) return
+      pointerInside = inside
+      pointerNext = inside ? { x: Math.round(x - bounds.x), y: Math.round(y - bounds.y) } : null
+      if (pointerTimer) return
+      pointerTimer = setTimeout(() => {
+        pointerTimer = null
+        if (mode !== 'hidden') call('pointer', pointerNext)
+      }, POINTER_INTERVAL_MS)
     },
     get mode() { return mode },
     /** Where the window was placed, in the same coordinates as `contains` (self tests and diagnostics). */

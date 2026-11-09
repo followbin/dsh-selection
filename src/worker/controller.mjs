@@ -20,12 +20,14 @@ const SEARCH_MAX_LENGTH = 2000
  *   idPrefix: string,
  *   now?: () => number,
  *   later?: (callback: () => void, ms: number) => unknown,
+ *   trackPointer?: (on: boolean) => void,
  * }} options `positions` are selection-hook's INVALID_COORDINATE and PositionLevel.SEL_FULL.
  *   `idPrefix` must differ between worker processes, so a late answer never lands in a new panel.
+ *   `trackPointer` turns the hook's mouse moves on while the overlay shows, and off again.
  */
 export function createController({
   overlay, speech, send, log, writeClipboard, openUrl, positions, idPrefix,
-  now = Date.now, later = setTimeout,
+  now = Date.now, later = setTimeout, trackPointer = () => {},
 }) {
   let config = null
   /** `text` goes to the model and the panel; `full` is what Copy, Read aloud and Search use. */
@@ -75,6 +77,7 @@ export function createController({
     selection = { id: ++nextSelection, text: cut(text, config.maxTextLength), full: text, app: data.programName }
     shownAt = now()
     overlay.showBar(anchor)
+    trackPointer(true)
     // The text stays here until the user picks an action; the Host only learns which app it came from.
     send({ type: 'selection', app: data.programName })
   }
@@ -91,6 +94,10 @@ export function createController({
   function onMouseDown(point) {
     pressedOnOverlay = overlay.mode !== 'hidden' && overlay.contains(point)
     if (overlay.mode !== 'hidden' && !pressedOnOverlay) dismiss({ reason: 'click-outside', point })
+  }
+
+  function onMouseMove(point) {
+    if (overlay.mode !== 'hidden') overlay.pointer(point)
   }
 
   function onMouseWheel(point) {
@@ -261,9 +268,10 @@ export function createController({
     panel = null
     overlay.setKeyable(false)
     overlay.hide()
+    trackPointer(false)
   }
 
-  return { configure, onSelection, onMouseDown, onMouseWheel, onKeyDown, onKeyUp, onPage, onResult }
+  return { configure, onSelection, onMouseDown, onMouseMove, onMouseWheel, onKeyDown, onKeyUp, onPage, onResult }
 }
 
 /** Shortens text without splitting a surrogate pair, which encodeURIComponent and JSON would reject. */

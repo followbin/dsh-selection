@@ -38,6 +38,7 @@ function fakeOverlay() {
     flash: (id) => overlay.record('flash', id),
     setKeyable: (keyable) => overlay.record('setKeyable', keyable),
     drag: (phase, point) => overlay.record('drag', phase, point),
+    pointer: (point) => overlay.record('pointer', point),
     hide() {
       overlay.mode = 'hidden'
       overlay.bounds = null
@@ -58,6 +59,7 @@ function setup(config = CONFIG) {
   const opened = []
   const spoken = []
   const timers = []
+  const tracking = []
   let clock = 1_000
   const controller = createController({
     overlay,
@@ -70,10 +72,11 @@ function setup(config = CONFIG) {
     idPrefix: 'p1',
     now: () => clock,
     later: (callback, ms) => timers.push({ callback, ms }),
+    trackPointer: (on) => tracking.push(on),
   })
   controller.configure(config)
   return {
-    controller, overlay, sent, logs, clipboard, opened, spoken, timers,
+    controller, overlay, sent, logs, clipboard, opened, spoken, timers, tracking,
     tick: (ms) => { clock += ms },
     select: (overrides = {}) => controller.onSelection({
       text: '  Hello world  ', programName: 'Safari', posLevel: FULL,
@@ -534,5 +537,21 @@ describe('worker controller: toolbar style', () => {
     const [, toolbar] = overlay.named('configure').at(-1)
     assert.equal(toolbar.style, 'mini')
     assert.deepEqual([...toolbar.bar, ...toolbar.more], CONFIG.skills)
+  })
+})
+
+describe('worker controller: pointer', () => {
+  test('mouse moves reach the overlay only while it shows, and the hook reports them only then', () => {
+    const { controller, overlay, select, tracking } = setup()
+    controller.onMouseMove({ x: 10, y: 10 })
+    assert.deepEqual(overlay.named('pointer'), [], 'nothing to hover while hidden')
+    select()
+    assert.deepEqual(tracking, [true])
+    controller.onMouseMove({ x: 20, y: 30 })
+    assert.deepEqual(overlay.named('pointer'), [['pointer', { x: 20, y: 30 }]])
+    controller.onKeyDown('Escape')
+    assert.deepEqual(tracking, [true, false])
+    controller.onMouseMove({ x: 20, y: 30 })
+    assert.equal(overlay.named('pointer').length, 1)
   })
 })

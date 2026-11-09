@@ -79,7 +79,14 @@
   const emptyState = (requestId = null, pending = false) => ({ requestId, text: '', turn: null, pending, failure: null })
   let skills = { bar: [], more: [] }
   let style = 'full'
-  let hoverTimer = null
+  // The mini toolbar opens its menu once the pointer rests on the icon, and closes it once the pointer
+  // has been out of the window for a moment.
+  const HOVER_OPEN_MS = 120
+  const HOVER_CLOSE_MS = 300
+  let openTimer = null
+  let closeTimer = null
+  /** The control drawn as hovered. */
+  let hovered = null
 
   // The menu offers whichever style is not in use.
   function drawStyleItem() {
@@ -87,6 +94,18 @@
     els.styleItem.querySelector('span').textContent = style === 'mini' ? t.fullStyle : t.miniStyle
   }
   drawStyleItem()
+
+  function stopHoverTimers() {
+    clearTimeout(openTimer)
+    clearTimeout(closeTimer)
+    openTimer = null
+    closeTimer = null
+  }
+
+  function clearHover() {
+    hovered?.removeAttribute('data-hover')
+    hovered = null
+  }
   let state = emptyState()
   let renderTimer = null
   // Timers rather than requestAnimationFrame: the view can be occluded or the screen locked, and then
@@ -104,6 +123,7 @@
   }
 
   function setMenu(open) {
+    stopHoverTimers()
     if (open) {
       const bar = $('.bar')
       const button = style === 'mini' ? els.mini : els.more
@@ -182,8 +202,8 @@
       queueSize()
     },
     showBar() {
-      clearTimeout(hoverTimer)
-      delete body.dataset.pointer
+      stopHoverTimers()
+      clearHover()
       body.dataset.mode = 'bar'
       setMenu(false)
     },
@@ -191,7 +211,7 @@
       if (body.dataset.mode === 'bar') setMenu(Boolean(open))
     },
     showPanel({ skill, text, app, languages, translateTarget }) {
-      delete body.dataset.pointer
+      clearHover()
       body.dataset.mode = 'panel'
       body.dataset.menu = 'closed'
       body.dataset.kind = skill.kind === 'ask' ? 'ask' : skill.id === 'translate' ? 'translate' : 'prompt'
@@ -260,6 +280,7 @@
       if (requestId !== state.requestId) return
       state.pending = false
       body.dataset.composer = 'shown'
+      resizeInput()
       scheduleRender()
     },
     fail(requestId, failure) {
@@ -291,9 +312,36 @@
       else delete body.dataset.fill
       queueSize()
     },
+    /**
+     * Where the pointer is in the window, or null once it has left, from the worker's global mouse
+     * hook: macOS sends no mouse moves to the window of a background process, so hover is drawn here.
+     */
+    pointer(point) {
+      const target = point ? document.elementFromPoint(point.x, point.y) : null
+      const control = target?.closest('button, select, a') ?? null
+      if (control !== hovered) {
+        clearHover()
+        control?.setAttribute('data-hover', '')
+        hovered = control
+      }
+      if (style !== 'mini' || body.dataset.mode !== 'bar') return
+      if (body.dataset.menu !== 'open') {
+        if (!target?.closest('.mini-button') || press) {
+          clearTimeout(openTimer)
+          openTimer = null
+        } else if (openTimer === null) {
+          openTimer = setTimeout(() => setMenu(true), HOVER_OPEN_MS)
+        }
+      } else if (point) {
+        clearTimeout(closeTimer)
+        closeTimer = null
+      } else if (closeTimer === null) {
+        closeTimer = setTimeout(() => setMenu(false), HOVER_CLOSE_MS)
+      }
+    },
     reset() {
-      clearTimeout(hoverTimer)
-      delete body.dataset.pointer
+      stopHoverTimers()
+      clearHover()
       body.dataset.mode = 'hidden'
       body.dataset.menu = 'closed'
       if (document.activeElement) document.activeElement.blur()
@@ -310,6 +358,7 @@
         type: 'probe',
         mode: body.dataset.mode,
         menu: body.dataset.menu,
+        hovered: hovered ? hovered.getAttribute('aria-label') || hovered.textContent.trim() : null,
         viewport: { width: innerWidth, height: innerHeight },
         card: { width: Math.round(box.width), height: Math.round(box.height) },
         buttons: buttons.map((button) => button.getAttribute('aria-label') || button.textContent.trim()),
@@ -368,7 +417,8 @@
   function resizeInput() {
     els.input.style.height = 'auto'
     const height = els.input.scrollHeight
-    els.input.style.height = `${Math.min(height, 96)}px`
+    // A hidden box measures nothing; it is measured again when it shows.
+    if (height) els.input.style.height = `${Math.min(height, 96)}px`
     // Scrollable only past its tallest size: at fractional display scaling one line can overflow by a
     // fraction of a pixel, which would otherwise let it scroll.
     els.input.style.overflowY = height > 96 ? 'auto' : 'hidden'
@@ -391,7 +441,6 @@
       return
     }
     if (event.target.closest('.mini-button')) {
-      clearTimeout(hoverTimer)
       setMenu(true)
       return
     }
@@ -513,36 +562,6 @@
   // Clicking into the answer lets the panel take the keyboard, so ⌘C copies a selected part of it.
   els.panelBody.addEventListener('pointerdown', () => {
     if (body.dataset.mode === 'panel') post({ type: 'keyboard', needed: true })
-  })
-
-  // The mini toolbar opens its menu once the pointer rests on the icon, and closes it once the pointer
-  // has left the window for a moment. Leaving the icon alone is not enough: a menu that does not fit
-  // below makes the worker move the whole window, which can take the icon from under the pointer.
-  const HOVER_OPEN_MS = 120
-  const HOVER_CLOSE_MS = 300
-  els.mini.addEventListener('pointerenter', () => {
-    clearTimeout(hoverTimer)
-    if (style !== 'mini' || body.dataset.menu === 'open' || press) return
-    hoverTimer = setTimeout(() => setMenu(true), HOVER_OPEN_MS)
-  })
-  els.mini.addEventListener('pointerleave', () => {
-    if (body.dataset.menu !== 'open') clearTimeout(hoverTimer)
-  })
-  els.mini.addEventListener('pointerdown', () => clearTimeout(hoverTimer))
-  document.addEventListener('pointerout', (event) => {
-    if (event.relatedTarget || style !== 'mini' || body.dataset.menu !== 'open') return
-    clearTimeout(hoverTimer)
-    hoverTimer = setTimeout(() => setMenu(false), HOVER_CLOSE_MS)
-  })
-  document.addEventListener('pointerover', () => {
-    if (body.dataset.menu === 'open') clearTimeout(hoverTimer)
-  })
-
-  // WebKit keeps :hover on whatever was under the pointer when it last saw one, through hiding and
-  // showing the window, and this process is never the active app, so a pointer that does not move
-  // over the page is not tracked. Hover styles therefore wait for a real movement after each show.
-  document.addEventListener('pointermove', () => {
-    if (!('pointer' in body.dataset)) body.dataset.pointer = ''
   })
 
   // Dropping a link or file would navigate the view away from this page.

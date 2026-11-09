@@ -49,9 +49,10 @@ svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; s
 
 button, select, textarea { font: inherit; color: inherit; }
 button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; border: 0; background: none; border-radius: 8px; cursor: default; }
-/* Hover waits for a real pointer movement after each show (data-pointer, see toolbar.js). */
-[data-pointer] button:hover { background: var(--hover); }
-button:active, [data-pointer] button:active { background: var(--press); }
+/* Hover is data-hover, set from the pointer the worker reports (see bar.pointer in toolbar.js): macOS
+   sends no mouse moves to the window of a background process, so :hover would never apply. */
+button[data-hover] { background: var(--hover); }
+button:active { background: var(--press); }
 button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .icon-button { width: 30px; height: 30px; padding: 0; color: var(--text); }
 .icon-button[disabled] { opacity: 0.35; pointer-events: none; }
@@ -96,10 +97,10 @@ button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); o
   color: var(--text); font-size: 12px; font-weight: 500; line-height: 26px; cursor: default;
   text-overflow: ellipsis; white-space: nowrap; overflow: hidden;
 }
-[data-pointer] .panel-language:hover { background-color: var(--press); }
+.panel-language[data-hover] { background-color: var(--press); }
 [data-kind="translate"] .panel-language { display: inline-block; }
 .tool { width: 28px; height: 28px; color: var(--muted); }
-[data-pointer] .tool:hover { color: var(--text); }
+.tool[data-hover] { color: var(--text); }
 .tool[aria-pressed="true"] { color: var(--accent); background: var(--hover); }
 .tool.done { color: #1f9d55; }
 [data-kind="ask"] .tool[data-tool="retry"] { display: none; }
@@ -133,7 +134,7 @@ button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); o
 .composer { flex: none; display: none; align-items: flex-end; gap: 6px; padding: 8px 10px 10px 14px; border-top: 1px solid var(--hairline); }
 [data-kind="ask"] .composer, [data-composer="shown"] .composer { display: flex; }
 .composer textarea {
-  flex: 1; min-height: 22px; max-height: 96px; padding: 4px 0; border: 0; outline: 0; resize: none; background: transparent;
+  flex: 1; min-height: 28px; max-height: 96px; padding: 4px 0; border: 0; outline: 0; resize: none; background: transparent;
   overflow-y: hidden; scrollbar-width: none;
   line-height: 1.5; user-select: text; -webkit-user-select: text; cursor: text;
 }
@@ -141,7 +142,7 @@ button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); o
 .composer textarea::-webkit-scrollbar { display: none; }
 .composer textarea::placeholder { color: var(--muted); }
 .send { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); color: #fff; }
-[data-pointer] .send:hover { background: var(--accent); filter: brightness(1.08); }
+.send[data-hover] { background: var(--accent); filter: brightness(1.08); }
 .send[disabled] { opacity: 0.35; }
 
 /* Model output */
@@ -155,7 +156,7 @@ button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); o
 .markdown pre code { padding: 0; background: none; font-size: 12px; line-height: 1.5; }
 .markdown blockquote { padding-left: 10px; border-left: 3px solid var(--hairline); color: var(--muted); }
 .markdown a { color: var(--accent); text-decoration: none; cursor: pointer; }
-[data-pointer] .markdown a:hover { text-decoration: underline; }
+.markdown a[data-hover] { text-decoration: underline; }
 .markdown table { border-collapse: collapse; font-size: 12.5px; }
 .markdown th, .markdown td { padding: 4px 8px; border: 1px solid var(--hairline); text-align: left; vertical-align: top; }
 .markdown th { background: var(--soft); font-weight: 600; }

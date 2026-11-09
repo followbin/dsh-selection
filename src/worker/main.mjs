@@ -61,12 +61,15 @@ controller = createController({
   openUrl: (url) => openUrl(url, log),
   positions: { invalid: SelectionHook.INVALID_COORDINATE, fullSelection: SelectionHook.PositionLevel.SEL_FULL },
   idPrefix: String(process.pid),
+  // Mouse moves cost CPU on every move anywhere, so the hook reports them only while the overlay shows.
+  trackPointer: (on) => (on ? hook.enableMouseMoveEvent() : hook.disableMouseMoveEvent()),
 })
 applyConfig(config)
 
 hook.on('text-selection', guarded('selection', (data) => controller.onSelection(data)))
 hook.on('mouse-down', guarded('mouse-down', (point) => controller.onMouseDown(point)))
 hook.on('mouse-wheel', guarded('mouse-wheel', (point) => controller.onMouseWheel(point)))
+hook.on('mouse-move', guarded('mouse-move', (point) => controller.onMouseMove(point)))
 hook.on('key-down', guarded('key-down', ({ uniKey }) => {
   if (uniKey === 'Alt' && !altDown) {
     altDown = true

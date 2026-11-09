@@ -62,13 +62,23 @@ await sleep(400)
 report.steps.menu = { layout: await probe(), front: frontApp() }
 Object.assign(report.clicks, await clicks(['.bar', '[data-menu-action="settings"]']))
 
-// The mini toolbar: one icon where the toolbar starts, and a menu with every skill.
+// The mini toolbar: one icon where the toolbar starts. The pointer, as the hook reports it, rests on
+// the icon and opens a menu with every skill, draws the item under it hovered, and leaving closes it.
 overlay.configure({ bar: skills.slice(0, 5), more: skills.slice(5), style: 'mini' })
 await sleep(400)
 report.steps.mini = { layout: await probe(), front: frontApp(), bounds: { ...overlay.bounds } }
-overlay.click('.mini-button')
+const icon = { x: overlay.bounds.x + 18 + 18, y: overlay.bounds.y + 12 + 18 }
+overlay.pointer(icon)
+await sleep(60)
+overlay.pointer({ x: icon.x + 1, y: icon.y })
 await sleep(400)
 report.steps.miniMenu = { layout: await probe(), front: frontApp() }
+overlay.pointer({ x: overlay.bounds.x + 60, y: overlay.bounds.y + 77 })
+await sleep(200)
+report.miniHover = (await probe())?.hovered
+overlay.pointer({ x: overlay.bounds.x - 400, y: overlay.bounds.y - 400 })
+await sleep(600)
+report.miniLeft = (await probe())?.menu
 overlay.configure({ bar: skills.slice(0, 5), more: skills.slice(5), style: 'full' })
 await sleep(300)
 
@@ -187,11 +197,13 @@ const { mini, miniMenu } = report.steps
 if (mini.layout && (mini.layout.card.width > 40 || mini.layout.card.height > 40)) problems.push(`the mini toolbar is not one icon: ${JSON.stringify(mini.layout.card)}`)
 if (mini.bounds.x !== bar.bounds.x || mini.bounds.y !== bar.bounds.y) problems.push('the mini toolbar does not start where the full one does')
 if (miniMenu.layout) {
-  if (miniMenu.layout.menu !== 'open') problems.push('clicking the mini icon did not open its menu')
+  if (miniMenu.layout.menu !== 'open') problems.push('resting the pointer on the mini icon did not open its menu')
   if (miniMenu.layout.viewport.height <= mini.layout.viewport.height) problems.push('window did not grow for the mini menu')
   const missing = skills.filter((skill) => !miniMenu.layout.buttons.includes(skill.name.zh) && !miniMenu.layout.buttons.includes(skill.name.en))
   if (missing.length) problems.push(`the mini menu lacks ${missing.map((skill) => skill.id).join(', ')}`)
 }
+if (![skills[0].name.zh, skills[0].name.en].includes(report.miniHover)) problems.push(`the menu item under the pointer is not drawn hovered: ${report.miniHover}`)
+if (report.miniLeft !== 'closed') problems.push(`the mini menu stayed open after the pointer left: ${report.miniLeft}`)
 const asked = report.steps.ask.layout
 const question = asked?.questions?.[0]
 if (!question || question.right < asked.body.right - 24 || question.left < asked.body.left + 40) problems.push('the question bubble is not on the right')

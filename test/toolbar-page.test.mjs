@@ -171,6 +171,10 @@ function iconOf(page, node) {
   })
 }
 
+/** jsdom lays nothing out: the x of a point the worker reports names the element under it. */
+function lay(page, elements) {
+  page.document.elementFromPoint = (x) => (elements[x] ? page.$(elements[x]) : page.body)
+}
 /** Gives a card a layout box, which jsdom leaves at zero. */
 function placeCard(page, selector, { x, y, width, height }) {
   page.$(selector).getBoundingClientRect = () => ({ x, y, left: x, top: y, width, height, right: x + width, bottom: y + height })
@@ -1435,29 +1439,44 @@ describe('panels are separate', () => {
 })
 
 describe('hover', () => {
-  test('hover styles wait for the pointer to move over the page after each show', async () => {
+  const hovered = (page) => page.$$('[data-hover]').map((node) => node.dataset.skill ?? node.className)
+
+  test('the control under the pointer the worker reports is drawn hovered, and only that one', async () => {
     const page = loadPage()
-    const moved = () => 'pointer' in page.document.body.dataset
     await openToolbar(page)
-    assert.equal(moved(), false, 'a button left hovered when the window hid does not light up')
-    pointer(page, 'pointermove', '.bar')
-    assert.equal(moved(), true)
-    page.bar.showBar()
-    assert.equal(moved(), false)
-    pointer(page, 'pointermove', '.bar')
-    await openPanel(page, SKILL.translate)
-    assert.equal(moved(), false)
-    pointer(page, 'pointermove', '.panel-head')
-    page.bar.reset()
-    assert.equal(moved(), false)
+    lay(page, { 1: '[data-skill="translate"]', 2: '[data-skill="ask"] span', 3: '.bar' })
+    page.bar.pointer({ x: 1, y: 0 })
+    assert.deepEqual(hovered(page), ['translate'])
+    page.bar.pointer({ x: 2, y: 0 })
+    assert.deepEqual(hovered(page), ['ask'], 'the button around a label, and the earlier one no longer')
+    page.bar.pointer({ x: 3, y: 0 })
+    assert.deepEqual(hovered(page), [], 'nothing between buttons')
+    page.bar.pointer({ x: 1, y: 0 })
+    page.bar.pointer(null)
+    assert.deepEqual(hovered(page), [], 'nothing once the pointer has left the window')
   })
 
-  test('every hover rule in the stylesheet waits for that movement', () => {
+  test('a toolbar or panel shown again starts with nothing hovered', async () => {
+    const page = loadPage()
+    await openToolbar(page)
+    lay(page, { 1: '[data-skill="translate"]', 2: '[data-tool="close"]' })
+    page.bar.pointer({ x: 1, y: 0 })
+    page.bar.showBar()
+    assert.deepEqual(hovered(page), [])
+    page.bar.pointer({ x: 1, y: 0 })
+    await openPanel(page, SKILL.translate)
+    assert.deepEqual(hovered(page), [])
+    page.bar.pointer({ x: 2, y: 0 })
+    assert.deepEqual(hovered(page), ['icon-button tool'])
+    page.bar.reset()
+    assert.deepEqual(hovered(page), [])
+  })
+
+  test('the stylesheet draws hover from data-hover, never from :hover', () => {
     const css = readFileSync(new URL('../ui/toolbar.css', import.meta.url), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')
     const selectors = [...css.matchAll(/([^{}]+)\{/g)].flatMap((match) => match[1].split(',')).map((selector) => selector.trim())
-    const hovering = selectors.filter((selector) => selector.includes(':hover'))
-    assert.ok(hovering.length >= 5)
-    assert.deepEqual(hovering.filter((selector) => !selector.startsWith('[data-pointer]')), [])
+    assert.deepEqual(selectors.filter((selector) => selector.includes(':hover')), [])
+    assert.ok(selectors.filter((selector) => selector.includes('[data-hover]')).length >= 5)
   })
 })
 
@@ -1482,8 +1501,6 @@ describe('mini toolbar', () => {
   const skillIds = (page, selector) => page.$$(selector).map((button) => button.dataset.skill)
   // The mark as the page's DOM serializes it, to compare with what a button holds.
   const brand = (page) => Object.assign(page.document.createElement('div'), { innerHTML: page.window.DSH_BRAND }).innerHTML
-  // pointerout names where the pointer went; nothing means it left the window.
-  const out = (page, from, to = null) => page.$(from).dispatchEvent(new page.window.MouseEvent('pointerout', { bubbles: true, relatedTarget: to && page.$(to) }))
 
   test('is one icon, and its menu holds every skill and offers the full toolbar', async () => {
     const page = loadPage()
@@ -1501,35 +1518,38 @@ describe('mini toolbar', () => {
   test('resting the pointer on the icon opens the menu; passing over it does not', async () => {
     const page = loadPage()
     await openToolbar(page, MINI)
-    pointer(page, 'pointerenter', '.mini-button')
+    lay(page, { 1: '.mini-button svg', 2: '.stage' })
+    page.bar.pointer({ x: 1, y: 0 })
     tick(60)
-    pointer(page, 'pointerleave', '.mini-button')
+    page.bar.pointer({ x: 2, y: 0 })
     tick(200)
     assert.equal(page.body.dataset.menu, 'closed', 'only passing over')
-    pointer(page, 'pointerenter', '.mini-button')
-    tick(120)
-    assert.equal(page.body.dataset.menu, 'open')
+    page.bar.pointer({ x: 1, y: 0 })
+    tick(60)
+    page.bar.pointer({ x: 1, y: 0 })
+    tick(60)
+    assert.equal(page.body.dataset.menu, 'open', 'moving on the icon does not restart the wait')
     assert.equal(page.$('.mini-button').getAttribute('aria-expanded'), 'true')
     await settle()
     assert.equal(sizeReports(page).at(-1).hits.length, 2, 'the menu takes clicks too')
   })
 
-  test('the menu stays open inside the window and closes once the pointer has left it for a moment', async () => {
+  test('the menu stays open while the pointer is in the window and closes once it has been away a moment', async () => {
     const page = loadPage()
     await openToolbar(page, MINI)
+    lay(page, { 1: '.mini-button', 2: '[data-skill="copy"]', 3: '.stage' })
     click(page, '.mini-button')
     assert.equal(page.body.dataset.menu, 'open', 'a click opens it at once')
-    pointer(page, 'pointerleave', '.mini-button')
-    out(page, '.mini-button', '.menu-skills > button')
-    out(page, '.menu-skills > button', '.stage')
+    page.bar.pointer({ x: 2, y: 0 })
+    page.bar.pointer({ x: 3, y: 0 })
     tick(1000)
-    assert.equal(page.body.dataset.menu, 'open', 'moving within the window, margins included')
-    out(page, '.menu')
+    assert.equal(page.body.dataset.menu, 'open', 'on a skill or a margin of the window')
+    page.bar.pointer(null)
     tick(200)
-    pointer(page, 'pointerover', '.menu')
+    page.bar.pointer({ x: 2, y: 0 })
     tick(1000)
     assert.equal(page.body.dataset.menu, 'open', 'back before it closed')
-    out(page, '.menu')
+    page.bar.pointer(null)
     tick(300)
     assert.equal(page.body.dataset.menu, 'closed')
   })
@@ -1567,8 +1587,8 @@ describe('mini toolbar', () => {
   test('the full toolbar never opens its menu on hover', async () => {
     const page = loadPage()
     await openToolbar(page)
-    pointer(page, 'pointerenter', '.more-button')
-    pointer(page, 'pointerenter', '.mini-button')
+    lay(page, { 1: '.more-button' })
+    page.bar.pointer({ x: 1, y: 0 })
     tick(1000)
     assert.equal(page.body.dataset.menu, 'closed')
   })
