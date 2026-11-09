@@ -85,7 +85,7 @@ function createClock() {
 }
 
 /** The parts of DSH's client context that client.js uses, recording what it registers. */
-function createContext(language) {
+function createContext(language, remote) {
   const ctx = {
     language,
     effects: [],
@@ -118,6 +118,10 @@ function createContext(language) {
         return () => ctx.dictionaries.delete(namespace)
       },
       bind: (namespace) => (key) => ctx.dictionaries.get(namespace)?.[ctx.language]?.[key] ?? key,
+    },
+    // Only DSH's remote services are injected this way; with none given, the callback never runs.
+    inject(services, callback) {
+      if (remote) callback({ remote, effect: ctx.effect })
     },
     get(name) {
       if (name === 'layout') return ctx.layout
@@ -231,6 +235,7 @@ function createHost({ dataDir, llm, desktop, platform, connection }) {
     platform,
     startWorker: worker.start,
     openExternal: (url) => opened.push(url),
+    version: '0.2.0',
   })
   let subscriptions = 0
   const handler = createHttpHandler({
@@ -361,14 +366,14 @@ function createHost({ dataDir, llm, desktop, platform, connection }) {
 
 const pages = []
 
-async function openPage({ language = 'zh', desktop = true, platform = 'darwin', settings, connection, before, props } = {}) {
+async function openPage({ language = 'zh', desktop = true, platform = 'darwin', settings, connection, before, props, pluginManager } = {}) {
   const dataDir = mkdtempSync(join(tmpdir(), 'dsh-selection-page-'))
   const llm = fakeLlm()
   const host = createHost({ dataDir, llm, desktop, platform, connection })
   if (settings) host.service.saveSettings(settings)
   before?.(host, llm)
   const clock = createClock()
-  const ctx = createContext(language)
+  const ctx = createContext(language, pluginManager && { pluginManager })
   const container = document.createElement('div')
   document.body.append(container)
   const $ = (selector, scope = container) => scope.querySelector(selector)
@@ -1656,4 +1661,94 @@ describe('event stream', () => {
     assert.equal(page.requests('GET', '/events').length, 1)
     assert.equal(page.host.subscriptions(), 0)
   })
+})
+
+describe('version and updates', () => {
+  const PACKAGE = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).name
+  const REGISTRY = 'https://registry.npmjs.org/'
+  const listed = (versions) => ({ ok: true, value: { status: 'listed', installed: '0.2.0', registry: REGISTRY, attempts: [], versions, omitted: 0 } })
+  const release = (version, extra = {}) => ({ version, tags: [], prerelease: false, bundle: true, ...extra })
+  const applied = (application, extra = {}) => ({ ok: true, value: { from: '0.2.0', to: '0.3.0', step: 'install', result: { changed: true, application, stage: 'enable', target: PACKAGE, ...extra } } })
+  /** DSH's plugin manager as the page sees it, answering with what it is given. */
+  function manager({ list, update } = {}) {
+    const calls = []
+    return {
+      calls,
+      listVersions: async (...args) => { calls.push(['listVersions', ...args]); return list },
+      updateBundle: async (...args) => { calls.push(['updateBundle', ...args]); return update },
+    }
+  }
+  const row = (page) => page.row(page.t('version.label'))
+  const hint = (page) => row(page).querySelector('.dss-hint').textContent
+
+  test('without DSH’s plugin manager the page shows the installed version only', async () => {
+    const page = await openPage()
+    assert.equal(hint(page), fill(page.t('version.current'), { version: '0.2.0' }))
+    assert.equal(row(page).querySelector('button'), null)
+  })
+
+  test('the page checks once when it opens, says when it is the latest, and checks again on request', async () => {
+    const pm = manager({ list: listed([]) })
+    const page = await openPage({ pluginManager: pm })
+    await page.step()
+    assert.deepEqual(pm.calls, [['listVersions', PACKAGE, {}]], 'DSH is asked about this package')
+    assert.equal(hint(page), fill(page.t('version.latest'), { version: '0.2.0' }))
+    await page.click(page.button(page.t('version.check'), row(page)))
+    await page.step()
+    assert.equal(pm.calls.length, 2)
+  })
+
+  test('a newer release installs in one click, through the request DSH’s Plugins page makes', async () => {
+    const pm = manager({ list: listed([release('0.4.0-beta.1', { prerelease: true }), release('0.3.0', { tags: ['latest'] })]), update: applied('applied') })
+    const page = await openPage({ pluginManager: pm })
+    await page.step()
+    assert.equal(hint(page), fill(page.t('version.available'), { installed: '0.2.0', version: '0.3.0' }), 'a prerelease is never offered')
+    await page.click(page.button(fill(page.t('version.update'), { version: '0.3.0' }), row(page)))
+    await page.step()
+    const [, name, version, options] = pm.calls.find(([call]) => call === 'updateBundle')
+    assert.deepEqual([name, version, options.registry], [PACKAGE, '0.3.0', REGISTRY])
+    assert.equal(typeof options.requestId, 'string')
+    assert.equal(hint(page), fill(page.t('version.updated'), { version: '0.3.0' }))
+  })
+
+  const outcomes = [
+    {
+      name: 'a copy from GitHub or a folder says where it can be updated',
+      pm: { list: { ok: true, value: { status: 'refused', problem: 'not-updatable', attempts: [] } } },
+      expected: (page) => fill(page.t('version.notUpdatable'), { version: '0.2.0' }),
+    },
+    {
+      name: 'a release that needs a newer DSH is named, not offered',
+      pm: { list: listed([release('0.3.0', { incompatible: { name: 'x', version: '0.3.0', runtimeVersion: '0.2.2', requirements: {} } })]) },
+      expected: (page) => fill(page.t('version.needsDsh'), { installed: '0.2.0', version: '0.3.0' }),
+    },
+    {
+      name: 'a check that fails says why',
+      pm: { list: { ok: false, error: { message: 'offline' } } },
+      expected: (page) => fill(page.t('version.checkFailed'), { version: '0.2.0', reason: 'offline' }),
+    },
+    {
+      name: 'an update that needs a restart says so',
+      pm: { list: listed([release('0.3.0')]), update: applied('restart-required', { restartReason: 'no-hmr' }) },
+      update: true,
+      expected: (page) => fill(page.t('version.restart'), { version: '0.3.0' }),
+    },
+    {
+      name: 'an update that fails says why',
+      pm: { list: listed([release('0.3.0')]), update: applied('failed', { error: { code: 'operation-error' } }) },
+      update: true,
+      expected: (page) => fill(page.t('version.failed'), { version: '0.3.0', reason: 'operation-error' }),
+    },
+  ]
+  for (const outcome of outcomes) {
+    test(outcome.name, async () => {
+      const page = await openPage({ pluginManager: manager(outcome.pm) })
+      await page.step()
+      if (outcome.update) {
+        await page.click(page.button(fill(page.t('version.update'), { version: '0.3.0' }), row(page)))
+        await page.step()
+      }
+      assert.equal(hint(page), outcome.expected(page))
+    })
+  }
 })

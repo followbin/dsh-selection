@@ -68,6 +68,21 @@ window.__ModuleLoader__.load({
       'toolbar.style.full': '常规',
       'toolbar.style.mini': '迷你',
       'toolbar.style.hint': '迷你模式只显示一个图标，鼠标停在上面会展开全部技能。在工具栏的菜单里也能切换。',
+      'version.label': '版本',
+      'version.current': '当前 {version}',
+      'version.latest': '当前 {version}，已是最新版本',
+      'version.available': '当前 {installed}，可以更新到 {version}',
+      'version.needsDsh': '当前 {installed}；新版本 {version} 需要先更新 DSH',
+      'version.notUpdatable': '当前 {version}。从 GitHub 或本地目录安装的版本不能在这里更新，可以到「插件」页卸载后重新安装',
+      'version.checkFailed': '当前 {version}；检查更新失败：{reason}',
+      'version.updating': '正在更新到 {version}，工具栏会短暂停止',
+      'version.updated': '已更新到 {version}，新版本已经在运行',
+      'version.restart': '已安装 {version}，重启 DSH 后生效',
+      'version.failed': '更新到 {version} 失败：{reason}。可以到「插件」页查看详情',
+      'version.check': '检查更新',
+      'version.checking': '正在检查…',
+      'version.update': '更新到 {version}',
+      'version.updatingShort': '正在更新…',
       'language.title': '语言',
       'language.native': '我的母语',
       'language.translate': '翻译成',
@@ -195,6 +210,21 @@ window.__ModuleLoader__.load({
       'toolbar.style.full': 'Full',
       'toolbar.style.mini': 'Mini',
       'toolbar.style.hint': 'The mini toolbar is a single icon; rest the pointer on it to see every skill. You can also switch from the toolbar’s menu.',
+      'version.label': 'Version',
+      'version.current': 'Version {version}',
+      'version.latest': 'Version {version}, the latest',
+      'version.available': 'Version {installed}; {version} is available',
+      'version.needsDsh': 'Version {installed}; {version} needs a newer DSH',
+      'version.notUpdatable': 'Version {version}. A copy installed from GitHub or a local folder cannot be updated here; uninstall it on the Plugins page and install it again',
+      'version.checkFailed': 'Version {version}; checking for updates failed: {reason}',
+      'version.updating': 'Updating to {version}; the toolbar stops for a moment',
+      'version.updated': 'Updated to {version}; the new version is running',
+      'version.restart': '{version} is installed and takes effect after DSH restarts',
+      'version.failed': 'Updating to {version} failed: {reason}. The Plugins page has the details',
+      'version.check': 'Check for updates',
+      'version.checking': 'Checking…',
+      'version.update': 'Update to {version}',
+      'version.updatingShort': 'Updating…',
       'language.title': 'Language',
       'language.native': 'My language',
       'language.translate': 'Translate into',
@@ -717,6 +747,104 @@ window.__ModuleLoader__.load({
 
     // ---------- Page ----------
 
+    // Updates go through DSH's plugin manager, reached the way DSH's own Plugins page reaches it: it stops
+    // this version, installs the new one and puts the old one back if that fails. Null where this DSH
+    // does not let a page reach it.
+    const PACKAGE = '@followbin/dsh-selection'
+    const updates = (() => {
+      let manager = null
+      let state = { phase: 'none' }
+      const listeners = new Set()
+      const set = (next) => {
+        state = next
+        for (const listener of listeners) listener(state)
+      }
+      const reasonOf = (value) => String(value?.message ?? value ?? 'unknown')
+      return {
+        get: () => state,
+        subscribe(listener) {
+          listeners.add(listener)
+          return () => listeners.delete(listener)
+        },
+        attach(next) {
+          manager = next
+          if (state.phase !== 'updating') set({ phase: next ? 'idle' : 'none' })
+        },
+        async check() {
+          if (!manager || state.phase === 'checking' || state.phase === 'updating') return
+          set({ phase: 'checking' })
+          let list
+          try {
+            const answer = await manager.listVersions(PACKAGE, {})
+            list = answer.ok ? answer.value : { status: 'refused', problem: 'unknown', reason: reasonOf(answer.error) }
+          } catch (error) {
+            list = { status: 'refused', problem: 'unknown', reason: reasonOf(error) }
+          }
+          if (list.status === 'listed') {
+            // Newest first; a prerelease, a deprecated version or one without a bundle is never offered.
+            const usable = list.versions.filter((entry) => entry.bundle && !entry.prerelease && !entry.deprecated)
+            const next = usable.find((entry) => !entry.incompatible)
+            const blocked = usable.find((entry) => entry.incompatible)
+            if (next) set({ phase: 'available', installed: list.installed, version: next.version, registry: list.registry })
+            else if (blocked) set({ phase: 'needs-dsh', installed: list.installed, version: blocked.version })
+            else set({ phase: 'latest', installed: list.installed })
+          } else {
+            set(list.problem === 'not-updatable' ? { phase: 'not-updatable' } : { phase: 'check-failed', reason: list.reason || list.problem })
+          }
+        },
+        async update() {
+          if (!manager || state.phase !== 'available') return
+          const { version, registry } = state
+          set({ phase: 'updating', version })
+          const requestId = globalThis.crypto?.randomUUID?.() ?? `dss-${Date.now()}-${Math.random().toString(36).slice(2)}`
+          let answer
+          try {
+            answer = await manager.updateBundle(PACKAGE, version, { registry, requestId })
+          } catch (error) {
+            answer = { ok: false, error }
+          }
+          // Once applied, DSH replaces this page with the new version's.
+          const result = answer.ok ? answer.value.result : null
+          if (result?.application === 'applied') set({ phase: 'updated', version })
+          else if (result?.application === 'restart-required') set({ phase: 'restart', version })
+          else set({ phase: 'failed', version, reason: answer.ok ? (result?.error?.code ?? result?.application ?? 'unknown') : reasonOf(answer.error) })
+        },
+      }
+    })()
+
+    function VersionRow({ t, version }) {
+      const [state, setState] = useState(updates.get())
+      useEffect(() => updates.subscribe(setState), [])
+      // Checks once when the page opens, or when DSH's plugin manager arrives after it.
+      useEffect(() => {
+        if (state.phase === 'idle') void updates.check()
+      }, [state.phase])
+      const installed = state.installed || version
+      const hint = {
+        none: fill(t('version.current'), { version }),
+        idle: fill(t('version.current'), { version }),
+        checking: fill(t('version.current'), { version }),
+        latest: fill(t('version.latest'), { version: installed }),
+        available: fill(t('version.available'), { installed, version: state.version }),
+        'needs-dsh': fill(t('version.needsDsh'), { installed, version: state.version }),
+        'not-updatable': fill(t('version.notUpdatable'), { version }),
+        'check-failed': fill(t('version.checkFailed'), { version, reason: state.reason }),
+        updating: fill(t('version.updating'), { version: state.version }),
+        updated: fill(t('version.updated'), { version: state.version }),
+        restart: fill(t('version.restart'), { version: state.version }),
+        failed: fill(t('version.failed'), { version: state.version, reason: state.reason }),
+      }[state.phase]
+      let action = null
+      if (state.phase === 'available') {
+        action = h('button', { type: 'button', className: 'dss-button primary', onClick: () => void updates.update() }, fill(t('version.update'), { version: state.version }))
+      } else if (state.phase === 'checking' || state.phase === 'updating') {
+        action = h('button', { type: 'button', className: 'dss-button', disabled: true }, t(state.phase === 'checking' ? 'version.checking' : 'version.updatingShort'))
+      } else if (['latest', 'needs-dsh', 'check-failed', 'failed'].includes(state.phase)) {
+        action = h('button', { type: 'button', className: 'dss-button', onClick: () => void updates.check() }, t('version.check'))
+      }
+      return h(Row, { label: t('version.label'), hint }, action)
+    }
+
     function SettingsPage(props) {
       const t = typeof props.t === 'function' ? props.t : (key) => zh[key] || key
       const [state, setState] = useState(null)
@@ -875,7 +1003,8 @@ window.__ModuleLoader__.load({
 
           panel('general',
             h('div', { className: 'dss-card', style: { marginTop: 20 } },
-              h(Row, { label: t('enabled.label'), hint: t('enabled.hint') }, h(Switch, { checked: settings.enabled, label: t('enabled.label'), onChange: (enabled) => update({ enabled }) }))),
+              h(Row, { label: t('enabled.label'), hint: t('enabled.hint') }, h(Switch, { checked: settings.enabled, label: t('enabled.label'), onChange: (enabled) => update({ enabled }) })),
+              h(VersionRow, { t, version: state.version })),
             h(Section, { title: t('toolbar.title') },
             h('div', { className: 'dss-card' },
               h(Row, { label: t('toolbar.style'), hint: t('toolbar.style.hint') },
@@ -1027,7 +1156,7 @@ window.__ModuleLoader__.load({
       return h(PageBoundary, props, h(SettingsPage, props))
     }
 
-    // Dashed selection frame around lines of text (Lucide "text-select", ISC).
+    // The plugin's mark as a line drawing; src/shared/icons.mjs has the same path as BRAND_LINE.
     const SIDEBAR_ICON = 'M4 8V6a2 2 0 0 1 2-2h2M16 4h2a2 2 0 0 1 2 2v2M20 16v2a2 2 0 0 1-2 2h-2M8 20H6a2 2 0 0 1-2-2v-2M12 6.8c.47 2.87 2.33 4.73 5.2 5.2-2.87.47-4.73 2.33-5.2 5.2-.47-2.87-2.33-4.73-5.2-5.2 2.87-.47 4.73-2.33 5.2-5.2Z'
 
     function SidebarIcon({ size = 18, active }) {
@@ -1054,6 +1183,15 @@ window.__ModuleLoader__.load({
           'dsh-selection: settings page',
         )
         ctx.effect(() => events.start(), 'dsh-selection: event stream')
+        // Updates need DSH's plugin manager; a DSH that gives a page none still shows everything else.
+        if (typeof ctx.inject === 'function') {
+          ctx.inject(['remote', 'remote.pluginManager'], (sub) => {
+            sub.effect(() => {
+              updates.attach(sub.remote.pluginManager)
+              return () => updates.attach(null)
+            }, 'dsh-selection: updates')
+          })
+        }
         // "More settings…" in the toolbar menu asks the Host to bring DSH forward on this page.
         ctx.effect(() => events.subscribe((event) => {
           if (event !== 'navigate') return
