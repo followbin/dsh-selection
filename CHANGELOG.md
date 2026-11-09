@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.1 (2026-11-09)
 
 - Hover works on macOS: resting the pointer on the mini icon opens its menu, and buttons light up under the pointer. macOS sends no mouse moves to the window of a background process, so while the toolbar shows, the worker passes the pointer on from its global mouse hook.
 - The follow-up box lines up with its send button before anything is typed.

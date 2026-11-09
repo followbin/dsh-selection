@@ -1,6 +1,6 @@
 {
   "name": "@followbin/dsh-selection",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Select text in any app and let DSH translate, summarize, explain, answer or read it aloud.",
   "keywords": [
     "dsh",
