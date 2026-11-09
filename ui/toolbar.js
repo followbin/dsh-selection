@@ -3,6 +3,7 @@
   const STRINGS = {
     zh: {
       more: '更多', disableApp: '在此应用中禁用', settings: '更多设置…', copied: '已复制', stop: '停止',
+      assistant: '划词助手', miniStyle: '切换为迷你模式', fullStyle: '切换为常规模式',
       close: '关闭', copyResult: '复制结果', retry: '重新生成', pin: '固定窗口', translateTo: '译为', auto: '自动',
       askPlaceholder: '就这段内容问点什么…', followPlaceholder: '接着问…', send: '发送', waiting: '正在生成', retryShort: '重试', from: '来自 {app}',
       errors: {
@@ -15,6 +16,7 @@
     },
     en: {
       more: 'More', disableApp: 'Disable in this app', settings: 'More settings…', copied: 'Copied', stop: 'Stop',
+      assistant: 'Selection assistant', miniStyle: 'Use the mini toolbar', fullStyle: 'Use the full toolbar',
       close: 'Close', copyResult: 'Copy result', retry: 'Regenerate', pin: 'Keep open', translateTo: 'Translate to', auto: 'Auto',
       askPlaceholder: 'Ask something about this text…', followPlaceholder: 'Ask a follow-up…', send: 'Send', waiting: 'Generating', retryShort: 'Retry', from: 'from {app}',
       errors: {
@@ -38,8 +40,10 @@
   const els = {
     barSkills: $('.bar-skills'),
     more: $('.more-button'),
+    mini: $('.mini-button'),
     menu: $('.menu'),
     menuSkills: $('.menu-skills'),
+    styleItem: $('[data-menu-action="toolbar-style"]'),
     panel: $('.panel'),
     panelIcon: $('.panel-icon'),
     panelTitle: $('.panel-title'),
@@ -64,6 +68,7 @@
   })
   document.querySelectorAll('[data-i18n-placeholder]').forEach((node) => { node.placeholder = t[node.dataset.i18nPlaceholder] })
   els.more.innerHTML = icon('more')
+  els.mini.innerHTML = icon('textSelect')
   $('[data-menu-action="disable-app"]').insertAdjacentHTML('afterbegin', icon('ban'))
   $('[data-menu-action="settings"]').insertAdjacentHTML('afterbegin', icon('settings'))
   for (const [tool, name] of [['pin', 'pin'], ['copy', 'copy'], ['retry', 'retry'], ['close', 'close']]) {
@@ -73,6 +78,15 @@
 
   const emptyState = (requestId = null, pending = false) => ({ requestId, text: '', turn: null, pending, failure: null })
   let skills = { bar: [], more: [] }
+  let style = 'full'
+  let hoverTimer = null
+
+  // The menu offers whichever style is not in use.
+  function drawStyleItem() {
+    els.styleItem.innerHTML = `${icon(style === 'mini' ? 'maximize' : 'minimize')}<span></span>`
+    els.styleItem.querySelector('span').textContent = style === 'mini' ? t.fullStyle : t.miniStyle
+  }
+  drawStyleItem()
   let state = emptyState()
   let renderTimer = null
   // Timers rather than requestAnimationFrame: the view can be occluded or the screen locked, and then
@@ -92,11 +106,13 @@
   function setMenu(open) {
     if (open) {
       const bar = $('.bar')
-      els.menu.style.left = `${bar.offsetLeft + els.more.offsetLeft - 6}px`
+      const button = style === 'mini' ? els.mini : els.more
+      els.menu.style.left = `${bar.offsetLeft + button.offsetLeft - 6}px`
       els.menu.style.top = `${bar.offsetTop + bar.offsetHeight + 6}px`
     }
     body.dataset.menu = open ? 'open' : 'closed'
-    els.more.setAttribute('aria-expanded', String(open))
+    els.more.setAttribute('aria-expanded', String(open && style === 'full'))
+    els.mini.setAttribute('aria-expanded', String(open && style === 'mini'))
     queueSize()
   }
 
@@ -151,11 +167,22 @@
   window.bar = {
     configure(next) {
       skills = next
-      els.barSkills.replaceChildren(...next.bar.map((skill) => skillButton(skill, 'skill')))
-      els.menuSkills.replaceChildren(...next.more.map((skill) => skillButton(skill, 'menu-item')))
+      const nextStyle = next.style === 'mini' ? 'mini' : 'full'
+      if (nextStyle !== style) {
+        setMenu(false)
+        style = nextStyle
+      }
+      body.dataset.style = style
+      // The mini toolbar has no skill buttons of its own: every skill is in its menu.
+      const onBar = style === 'mini' ? [] : next.bar
+      const inMenu = style === 'mini' ? [...next.bar, ...next.more] : next.more
+      els.barSkills.replaceChildren(...onBar.map((skill) => skillButton(skill, 'skill')))
+      els.menuSkills.replaceChildren(...inMenu.map((skill) => skillButton(skill, 'menu-item')))
+      drawStyleItem()
       queueSize()
     },
     showBar() {
+      clearTimeout(hoverTimer)
       delete body.dataset.pointer
       body.dataset.mode = 'bar'
       setMenu(false)
@@ -250,8 +277,8 @@
       queueSize()
     },
     flash(skillId) {
-      // A skill run from the ⋯ menu confirms on the ⋯ button: the menu has closed by then.
-      flashDone(els.barSkills.querySelector(`[data-skill="${skillId}"]`) || els.more, t.copied)
+      // A skill run from the menu confirms on the button that opens the menu: the menu has closed by then.
+      flashDone(els.barSkills.querySelector(`[data-skill="${skillId}"]`) || (style === 'mini' ? els.mini : els.more), t.copied)
     },
     /**
      * How tall the panel may grow before it scrolls inside, from the worker's placement. With `fill`
@@ -265,6 +292,7 @@
       queueSize()
     },
     reset() {
+      clearTimeout(hoverTimer)
       delete body.dataset.pointer
       body.dataset.mode = 'hidden'
       body.dataset.menu = 'closed'
@@ -360,6 +388,11 @@
     if (skill) {
       setMenu(false)
       post({ type: 'skill', id: skill.dataset.skill })
+      return
+    }
+    if (event.target.closest('.mini-button')) {
+      clearTimeout(hoverTimer)
+      setMenu(true)
       return
     }
     if (event.target.closest('.more-button')) {
@@ -480,6 +513,29 @@
   // Clicking into the answer lets the panel take the keyboard, so ⌘C copies a selected part of it.
   els.panelBody.addEventListener('pointerdown', () => {
     if (body.dataset.mode === 'panel') post({ type: 'keyboard', needed: true })
+  })
+
+  // The mini toolbar opens its menu once the pointer rests on the icon, and closes it once the pointer
+  // has left the window for a moment. Leaving the icon alone is not enough: a menu that does not fit
+  // below makes the worker move the whole window, which can take the icon from under the pointer.
+  const HOVER_OPEN_MS = 120
+  const HOVER_CLOSE_MS = 300
+  els.mini.addEventListener('pointerenter', () => {
+    clearTimeout(hoverTimer)
+    if (style !== 'mini' || body.dataset.menu === 'open' || press) return
+    hoverTimer = setTimeout(() => setMenu(true), HOVER_OPEN_MS)
+  })
+  els.mini.addEventListener('pointerleave', () => {
+    if (body.dataset.menu !== 'open') clearTimeout(hoverTimer)
+  })
+  els.mini.addEventListener('pointerdown', () => clearTimeout(hoverTimer))
+  document.addEventListener('pointerout', (event) => {
+    if (event.relatedTarget || style !== 'mini' || body.dataset.menu !== 'open') return
+    clearTimeout(hoverTimer)
+    hoverTimer = setTimeout(() => setMenu(false), HOVER_CLOSE_MS)
+  })
+  document.addEventListener('pointerover', () => {
+    if (body.dataset.menu === 'open') clearTimeout(hoverTimer)
   })
 
   // WebKit keeps :hover on whatever was under the pointer when it last saw one, through hiding and

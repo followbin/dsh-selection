@@ -63,7 +63,12 @@ button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); o
 .skill { height: 32px; padding: 0 10px 0 9px; font-weight: 500; letter-spacing: 0.1px; }
 .skill.done svg { color: #1f9d55; }
 .divider { width: 1px; height: 16px; margin: 0 4px; background: var(--hairline); }
-.more-button[aria-expanded="true"] { background: var(--press); }
+.more-button[aria-expanded="true"], .mini-button[aria-expanded="true"] { background: var(--press); }
+/* Mini toolbar: one icon, and every skill in its menu. */
+.mini-button { display: none; color: var(--accent); }
+[data-style="mini"] .bar { padding: 3px; border-radius: 10px; }
+[data-style="mini"] .bar-skills, [data-style="mini"] .divider, [data-style="mini"] .more-button { display: none; }
+[data-style="mini"] .mini-button { display: inline-flex; }
 
 /* ⋯ menu, opened below the more button */
 .menu { display: none; position: absolute; min-width: 190px; padding: 6px; border-radius: 12px; z-index: 1; }

@@ -182,7 +182,7 @@ export async function createOverlay({ onMessage, log }) {
   }
 
   return {
-    /** @param {{ bar: object[], more: object[] }} toolbar Skills on the toolbar and in the ⋯ menu. */
+    /** @param {{ bar: object[], more: object[], style: 'full' | 'mini' }} toolbar Skills on the toolbar and in its menu, and how the toolbar is drawn. */
     configure: (toolbar) => call('configure', toolbar),
     /** @param {Anchor} point In selection-hook coordinates. */
     showBar(point) {

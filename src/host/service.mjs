@@ -101,6 +101,7 @@ export function createSelectionService({
       enabled: current.enabled,
       trigger: current.trigger,
       toolbarSize: current.toolbarSize,
+      toolbarStyle: current.toolbarStyle,
       skills: enabledSkills(current),
       disabledApps: current.disabledApps,
       clipboardFallback: current.clipboardFallback,
@@ -130,6 +131,15 @@ export function createSelectionService({
         break
       case 'cancel':
         runs.get(message.requestId)?.abort()
+        break
+      case 'toolbar-style':
+        if (message.style === 'full' || message.style === 'mini') {
+          try {
+            settings.update((current) => ({ ...current, toolbarStyle: message.style }))
+          } catch (error) {
+            log('error', 'saving settings failed', { error: String(error?.message ?? error) })
+          }
+        }
         break
       case 'disable-app':
         if (typeof message.app === 'string' && message.app) {

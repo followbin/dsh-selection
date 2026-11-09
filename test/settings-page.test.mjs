@@ -839,6 +839,12 @@ describe('saving settings', () => {
       shown: (page) => page.checked(page.t('enabled.label')),
     },
     {
+      name: 'the style buttons save only toolbarStyle, at once',
+      change: (page) => page.click(page.button(page.t('toolbar.style.mini'), page.row(page.t('toolbar.style')))),
+      patch: { toolbarStyle: 'mini' },
+      shown: (page) => ['full', 'mini'].find((style) => page.button(page.t(`toolbar.style.${style}`), page.row(page.t('toolbar.style'))).getAttribute('aria-pressed') === 'true'),
+    },
+    {
       name: 'the trigger select saves only trigger',
       change: (page) => page.choose(page.control(page.t('toolbar.trigger')), 'modifier'),
       patch: { trigger: 'modifier' },
@@ -912,6 +918,17 @@ describe('saving settings', () => {
       assert.equal(page.statusText(), page.t('status.saved'))
     })
   }
+
+  test('with the mini toolbar there is no toolbar size, and the skills are one list', async () => {
+    const page = await openPage({ settings: { toolbarStyle: 'mini' } })
+    assert.equal(page.row(page.t('toolbar.size')), undefined)
+    assert.ok(!page.skillLayout().includes('|'), 'no split between the toolbar and the menu')
+    assert.equal(page.section(page.t('skills.title')).querySelector('.dss-section-hint').textContent, page.t('skills.hintMini'))
+    await page.click(page.button(page.t('toolbar.style.full'), page.row(page.t('toolbar.style'))))
+    await page.expectSave({ toolbarStyle: 'full' })
+    assert.ok(page.row(page.t('toolbar.size')), 'the size is back with the full toolbar')
+    assert.ok(page.skillLayout().includes('|'))
+  })
 
   test('number fields round and clamp to the limits the Host reports', async () => {
     const page = await openPage()

@@ -49,7 +49,11 @@ export function createController({
 
   function configure(next) {
     config = next
-    overlay.configure({ bar: next.skills.slice(0, next.toolbarSize), more: next.skills.slice(next.toolbarSize) })
+    overlay.configure({
+      bar: next.skills.slice(0, next.toolbarSize),
+      more: next.skills.slice(next.toolbarSize),
+      style: next.toolbarStyle === 'mini' ? 'mini' : 'full',
+    })
     if (!next.enabled) dismiss({ force: true, reason: 'disabled' })
   }
 
@@ -119,6 +123,7 @@ export function createController({
       case 'skill':
         return runSkill(message.id)
       case 'menu':
+        if (message.action === 'toolbar-style') return switchStyle()
         if (message.action !== 'disable-app' && message.action !== 'settings') return
         if (message.action === 'disable-app' && selection) send({ type: 'disable-app', app: selection.app })
         if (message.action === 'settings') send({ type: 'open-settings' })
@@ -163,6 +168,14 @@ export function createController({
         speech.stop()
         return dismiss({ force: true, reason: 'close-button' })
     }
+  }
+
+  /** Swaps the full toolbar and the mini icon where they are, and has the Host save the choice. */
+  function switchStyle() {
+    if (!config) return
+    const style = config.toolbarStyle === 'mini' ? 'full' : 'mini'
+    configure({ ...config, toolbarStyle: style })
+    send({ type: 'toolbar-style', style })
   }
 
   function runSkill(id) {

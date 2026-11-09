@@ -514,3 +514,25 @@ describe('worker controller: closing', () => {
     assert.equal(spoken.at(-1), 'stop')
   })
 })
+
+describe('worker controller: toolbar style', () => {
+  test('the toolbar menu swaps full and mini where the toolbar is, and the Host saves the choice', () => {
+    const { controller, overlay, sent, select } = setup()
+    assert.equal(overlay.named('configure').at(-1)[1].style, 'full')
+    select()
+    controller.onPage({ type: 'menu', action: 'toolbar-style' })
+    assert.equal(overlay.named('configure').at(-1)[1].style, 'mini')
+    assert.deepEqual(sent.at(-1), { type: 'toolbar-style', style: 'mini' })
+    assert.equal(overlay.mode, 'bar', 'the toolbar stays up')
+    controller.onPage({ type: 'menu', action: 'toolbar-style' })
+    assert.equal(overlay.named('configure').at(-1)[1].style, 'full')
+    assert.deepEqual(sent.at(-1), { type: 'toolbar-style', style: 'full' })
+  })
+
+  test('a mini toolbar from the settings gets every skill, split as the full toolbar would split them', () => {
+    const { overlay } = setup({ ...CONFIG, toolbarStyle: 'mini' })
+    const [, toolbar] = overlay.named('configure').at(-1)
+    assert.equal(toolbar.style, 'mini')
+    assert.deepEqual([...toolbar.bar, ...toolbar.more], CONFIG.skills)
+  })
+})

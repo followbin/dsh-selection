@@ -36,6 +36,7 @@ window.__ModuleLoader__.load({
       'enabled.hint': '关掉后划词助手不会再弹出，设置保留。',
       'skills.title': '技能',
       'skills.hint': '前 {count} 个启用的技能显示在工具栏上，其余收进 ⋯ 菜单。拖动或用方向键调整顺序。',
+      'skills.hintMini': '迷你模式下，所有启用的技能都在图标展开的菜单里。拖动或用方向键调整顺序。',
       'skills.overflow': '以下收进 ⋯ 菜单',
       'skills.custom': '自定义',
       'skills.add': '新建技能',
@@ -63,6 +64,10 @@ window.__ModuleLoader__.load({
       'toolbar.trigger.auto': '选中文字后自动弹出',
       'toolbar.trigger.modifier': '按住 ⌥ / Alt 选中时才弹出',
       'toolbar.size': '工具栏上的技能数',
+      'toolbar.style': '样式',
+      'toolbar.style.full': '常规',
+      'toolbar.style.mini': '迷你',
+      'toolbar.style.hint': '迷你模式只显示一个图标，鼠标停在上面会展开全部技能。在工具栏的菜单里也能切换。',
       'language.title': '语言',
       'language.native': '我的母语',
       'language.translate': '翻译成',
@@ -158,6 +163,7 @@ window.__ModuleLoader__.load({
       'enabled.hint': 'Turning this off hides the assistant and keeps your settings.',
       'skills.title': 'Skills',
       'skills.hint': 'The first {count} enabled skills sit on the toolbar; the rest go into the ⋯ menu. Drag or use the arrow keys to reorder.',
+      'skills.hintMini': 'With the mini toolbar, every enabled skill is in the icon’s menu. Drag or use the arrow keys to reorder.',
       'skills.overflow': 'In the ⋯ menu',
       'skills.custom': 'Custom',
       'skills.add': 'New skill',
@@ -185,6 +191,10 @@ window.__ModuleLoader__.load({
       'toolbar.trigger.auto': 'Automatically after selecting text',
       'toolbar.trigger.modifier': 'Only while holding ⌥ / Alt during selection',
       'toolbar.size': 'Skills on the toolbar',
+      'toolbar.style': 'Style',
+      'toolbar.style.full': 'Full',
+      'toolbar.style.mini': 'Mini',
+      'toolbar.style.hint': 'The mini toolbar is a single icon; rest the pointer on it to see every skill. You can also switch from the toolbar’s menu.',
       'language.title': 'Language',
       'language.native': 'My language',
       'language.translate': 'Translate into',
@@ -576,7 +586,7 @@ window.__ModuleLoader__.load({
           checked: entry.enabled, label: nameOf(entry),
           onChange: (enabled) => update({ skills: settings.skills.map((skill) => (skill.id === entry.id ? { ...skill, enabled } : skill)) }),
         })))
-        if (entry.enabled && enabledSeen === settings.toolbarSize && index < settings.skills.length - 1) {
+        if (settings.toolbarStyle !== 'mini' && entry.enabled && enabledSeen === settings.toolbarSize && index < settings.skills.length - 1) {
           rows.push(h('div', { key: '__overflow', className: 'dss-overflow' }, t('skills.overflow')))
         }
       })
@@ -868,11 +878,16 @@ window.__ModuleLoader__.load({
               h(Row, { label: t('enabled.label'), hint: t('enabled.hint') }, h(Switch, { checked: settings.enabled, label: t('enabled.label'), onChange: (enabled) => update({ enabled }) }))),
             h(Section, { title: t('toolbar.title') },
             h('div', { className: 'dss-card' },
+              h(Row, { label: t('toolbar.style'), hint: t('toolbar.style.hint') },
+                h('div', { className: 'dss-segmented', role: 'group', 'aria-label': t('toolbar.style'), style: { marginTop: 0 } },
+                  ['full', 'mini'].map((style) => h('button', {
+                    key: style, type: 'button', 'aria-pressed': String(settings.toolbarStyle === style), onClick: () => update({ toolbarStyle: style }),
+                  }, t(`toolbar.style.${style}`))))),
               h(Row, { label: t('toolbar.trigger') },
                 h('select', { className: 'dss-select', value: settings.trigger, onChange: (event) => update({ trigger: event.target.value }) },
                   h('option', { value: 'auto' }, t('toolbar.trigger.auto')),
                   h('option', { value: 'modifier' }, t('toolbar.trigger.modifier')))),
-              h(Row, { label: t('toolbar.size') },
+              settings.toolbarStyle === 'mini' ? null : h(Row, { label: t('toolbar.size') },
                 h(NumberInput, { value: settings.toolbarSize, min: limits.toolbarSize.min, max: limits.toolbarSize.max, label: t('toolbar.size'), onChange: (toolbarSize) => update({ toolbarSize }) })))),
             h(Section, { title: t('language.title') },
             h('div', { className: 'dss-card' },
@@ -890,7 +905,7 @@ window.__ModuleLoader__.load({
                   catalog.languages.map((language) => h('option', { key: language.code, value: language.code }, language.name))))))),
 
           panel('skills',
-            h(Section, { title: t('skills.title'), hint: fill(t('skills.hint'), { count: settings.toolbarSize }) },
+            h(Section, { title: t('skills.title'), hint: settings.toolbarStyle === 'mini' ? t('skills.hintMini') : fill(t('skills.hint'), { count: settings.toolbarSize }) },
             h(SkillList, { t, settings, catalog, update, onEdit: (entry) => setEditing(entry) }),
             editing
               ? h(SkillEditor, { key: editing.id || 'new', t, catalog, limits, initial: editing.id ? editing : null, onSave: saveSkill, onCancel: () => setEditing(null), prepare: saveNow })

@@ -57,6 +57,7 @@ export function defaultSettings() {
     enabled: true,
     trigger: 'auto',
     toolbarSize: 5,
+    toolbarStyle: 'full',
     skills: BUILTIN_SKILLS.map((skill) => ({ id: skill.id, enabled: true })),
     disabledApps: [],
     nativeLanguage: 'zh-CN',
@@ -83,6 +84,7 @@ export function normalizeSettings(input) {
     enabled: typeof value.enabled === 'boolean' ? value.enabled : defaults.enabled,
     trigger: value.trigger === 'modifier' ? 'modifier' : 'auto',
     toolbarSize: clampInt(value.toolbarSize, LIMITS.toolbarSize, defaults.toolbarSize),
+    toolbarStyle: value.toolbarStyle === 'mini' ? 'mini' : 'full',
     skills: normalizeSkills(value.skills),
     disabledApps: normalizeApps(value.disabledApps),
     nativeLanguage: LANGUAGE_CODES.has(value.nativeLanguage) ? value.nativeLanguage : defaults.nativeLanguage,
@@ -266,6 +268,7 @@ function isObject(value) {
  * @property {boolean} enabled Show the toolbar when text is selected.
  * @property {'auto' | 'modifier'} trigger `modifier` shows it only while ⌥ / Alt is held.
  * @property {number} toolbarSize How many enabled skills sit on the toolbar; the rest go to the ⋯ menu.
+ * @property {'full' | 'mini'} toolbarStyle Full: skill buttons on the toolbar. Mini: one icon whose menu holds every skill.
  * @property {Array<{ id: string, enabled: boolean, custom?: true, name?: string, icon?: string, prompt?: string }>} skills
  * @property {string[]} disabledApps Program names (as reported by the OS) where the toolbar never shows.
  * @property {string} nativeLanguage Language the user reads best; auto translation flips around it.

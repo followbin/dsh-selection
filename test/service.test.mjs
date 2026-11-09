@@ -109,7 +109,7 @@ describe('selection service with a toolbar process', () => {
     assert.equal(type, 'config')
     assert.deepEqual(Object.keys(config).sort(), [
       'clipboardFallback', 'disabledApps', 'enabled', 'languages', 'maxTextLength',
-      'searchTemplate', 'skills', 'toolbarSize', 'translateTarget', 'trigger',
+      'searchTemplate', 'skills', 'toolbarSize', 'toolbarStyle', 'translateTarget', 'trigger',
     ])
     assert.ok(!JSON.stringify(config).includes('Secret prompt'), 'custom prompts stay in the Host')
     assert.match(config.searchTemplate, /%s/)
@@ -174,6 +174,17 @@ describe('selection service with a toolbar process', () => {
     for (let i = 0; i < 20; i++) worker.emit({ type: 'selection', app: `App ${i}` })
     assert.equal(service.getState().recentApps.length, 12)
     assert.equal(service.getState().recentApps[0], 'App 19')
+    await service.dispose()
+  })
+
+  test('a style switched on the toolbar is saved, ignoring unknown styles, and sent back to the worker', async () => {
+    const { service, worker } = start('w-style')
+    const events = []
+    service.subscribe((event, data) => events.push([event, data]))
+    for (const style of ['tiny', 7, 'mini']) worker.emit({ type: 'toolbar-style', style })
+    assert.equal(service.getState().settings.toolbarStyle, 'mini')
+    assert.equal(worker.sent.at(-1).config.toolbarStyle, 'mini')
+    assert.ok(events.some(([event, data]) => event === 'settings' && data.toolbarStyle === 'mini'), 'the settings page follows')
     await service.dispose()
   })
 

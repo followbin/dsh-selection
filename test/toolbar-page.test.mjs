@@ -219,6 +219,8 @@ describe('loading', () => {
     const page = loadPage()
     const controls = {
       '.more-button': 'more',
+      '.mini-button': 'textSelect',
+      '[data-menu-action="toolbar-style"]': 'minimize',
       '[data-menu-action="disable-app"]': 'ban',
       '[data-menu-action="settings"]': 'settings',
       '[data-tool="pin"]': 'pin',
@@ -235,13 +237,13 @@ describe('loading', () => {
 describe('language', () => {
   const LABELS = {
     en: {
-      controls: ['More', 'Translate to', 'Keep open', 'Copy result', 'Regenerate', 'Close', 'Send'],
-      menu: ['Disable in this app', 'More settings…'],
+      controls: ['More', 'Selection assistant', 'Translate to', 'Keep open', 'Copy result', 'Regenerate', 'Close', 'Send'],
+      menu: ['Use the mini toolbar', 'Disable in this app', 'More settings…'],
       placeholder: 'Ask something about this text…',
     },
     zh: {
-      controls: ['更多', '译为', '固定窗口', '复制结果', '重新生成', '关闭', '发送'],
-      menu: ['在此应用中禁用', '更多设置…'],
+      controls: ['更多', '划词助手', '译为', '固定窗口', '复制结果', '重新生成', '关闭', '发送'],
+      menu: ['切换为迷你模式', '在此应用中禁用', '更多设置…'],
       placeholder: '就这段内容问点什么…',
     },
   }
@@ -1472,5 +1474,100 @@ describe('quick successions', () => {
     tick(RENDER_MS)
     assert.equal(page.$('.result').textContent.trim(), 'First answer.')
     assert.deepEqual(page.$$('.thread .question').map((node) => node.textContent), ['And then?'])
+  })
+})
+
+describe('mini toolbar', () => {
+  const MINI = { ...TOOLBAR, style: 'mini' }
+  const visible = (page, selector) => page.window.getComputedStyle(page.$(selector)).display !== 'none'
+  const skillIds = (page, selector) => page.$$(selector).map((button) => button.dataset.skill)
+  // pointerout names where the pointer went; nothing means it left the window.
+  const out = (page, from, to = null) => page.$(from).dispatchEvent(new page.window.MouseEvent('pointerout', { bubbles: true, relatedTarget: to && page.$(to) }))
+
+  test('is one icon, and its menu holds every skill and offers the full toolbar', async () => {
+    const page = loadPage()
+    await openToolbar(page, MINI)
+    assert.equal(page.body.dataset.style, 'mini')
+    assert.ok(visible(page, '.mini-button'))
+    for (const selector of ['.bar-skills', '.more-button']) assert.ok(!visible(page, selector), `${selector} is hidden`)
+    assert.deepEqual(skillIds(page, '.bar-skills > button'), [])
+    assert.deepEqual(skillIds(page, '.menu-skills > button'), [...TOOLBAR.bar, ...TOOLBAR.more].map((skill) => skill.id))
+    assert.equal(page.$('[data-menu-action="toolbar-style"]').textContent, 'Use the full toolbar')
+    assert.equal(iconOf(page, page.$('[data-menu-action="toolbar-style"]')), 'maximize')
+  })
+
+  test('resting the pointer on the icon opens the menu; passing over it does not', async () => {
+    const page = loadPage()
+    await openToolbar(page, MINI)
+    pointer(page, 'pointerenter', '.mini-button')
+    tick(60)
+    pointer(page, 'pointerleave', '.mini-button')
+    tick(200)
+    assert.equal(page.body.dataset.menu, 'closed', 'only passing over')
+    pointer(page, 'pointerenter', '.mini-button')
+    tick(120)
+    assert.equal(page.body.dataset.menu, 'open')
+    assert.equal(page.$('.mini-button').getAttribute('aria-expanded'), 'true')
+    await settle()
+    assert.equal(sizeReports(page).at(-1).hits.length, 2, 'the menu takes clicks too')
+  })
+
+  test('the menu stays open inside the window and closes once the pointer has left it for a moment', async () => {
+    const page = loadPage()
+    await openToolbar(page, MINI)
+    click(page, '.mini-button')
+    assert.equal(page.body.dataset.menu, 'open', 'a click opens it at once')
+    pointer(page, 'pointerleave', '.mini-button')
+    out(page, '.mini-button', '.menu-skills > button')
+    out(page, '.menu-skills > button', '.stage')
+    tick(1000)
+    assert.equal(page.body.dataset.menu, 'open', 'moving within the window, margins included')
+    out(page, '.menu')
+    tick(200)
+    pointer(page, 'pointerover', '.menu')
+    tick(1000)
+    assert.equal(page.body.dataset.menu, 'open', 'back before it closed')
+    out(page, '.menu')
+    tick(300)
+    assert.equal(page.body.dataset.menu, 'closed')
+  })
+
+  test('a skill from the menu runs and confirms on the icon; the style item asks the worker to switch', async () => {
+    const page = loadPage()
+    await openToolbar(page, MINI)
+    click(page, '.mini-button')
+    click(page, '[data-skill="copy"]')
+    assert.deepEqual(sent(page), [{ type: 'skill', id: 'copy' }])
+    assert.equal(page.body.dataset.menu, 'closed')
+    page.bar.flash('copy')
+    assert.equal(iconOf(page, page.$('.mini-button')), 'check')
+    tick(1200)
+    assert.equal(iconOf(page, page.$('.mini-button')), 'textSelect')
+    click(page, '.mini-button')
+    click(page, '[data-menu-action="toolbar-style"]')
+    assert.deepEqual(sent(page), [{ type: 'menu', action: 'toolbar-style' }])
+  })
+
+  test('switching styles while the menu is open closes it and redraws the toolbar', async () => {
+    const page = loadPage()
+    await openToolbar(page)
+    click(page, '.more-button')
+    assert.equal(page.body.dataset.menu, 'open')
+    page.bar.configure(MINI)
+    assert.equal(page.body.dataset.menu, 'closed')
+    assert.equal(page.body.dataset.mode, 'bar', 'the toolbar stays up')
+    page.bar.configure(TOOLBAR)
+    assert.equal(page.body.dataset.style, 'full')
+    assert.deepEqual(skillIds(page, '.bar-skills > button'), TOOLBAR.bar.map((skill) => skill.id))
+    assert.equal(page.$('[data-menu-action="toolbar-style"]').textContent, 'Use the mini toolbar')
+  })
+
+  test('the full toolbar never opens its menu on hover', async () => {
+    const page = loadPage()
+    await openToolbar(page)
+    pointer(page, 'pointerenter', '.more-button')
+    pointer(page, 'pointerenter', '.mini-button')
+    tick(1000)
+    assert.equal(page.body.dataset.menu, 'closed')
   })
 })

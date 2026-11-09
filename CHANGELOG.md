@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Mini toolbar: a single icon whose menu, opened by resting the pointer on it, holds every skill. Switch between it and the full toolbar from the toolbar's menu or the settings page.
 - Windows: no border around the toolbar and its panels; the system shadow tao gave the transparent window is off.
 - The follow-up box never shows a scrollbar (Windows drew one with arrow buttons); past four lines it still scrolls.
 

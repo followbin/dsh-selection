@@ -8,6 +8,12 @@ import {
 } from '../src/host/settings.mjs'
 
 describe('normalizeSettings', () => {
+  test('the toolbar style is full unless it is mini', () => {
+    assert.equal(defaultSettings().toolbarStyle, 'full')
+    assert.equal(normalizeSettings({ toolbarStyle: 'mini' }).toolbarStyle, 'mini')
+    for (const toolbarStyle of ['MINI', 'compact', 1, null, undefined]) assert.equal(normalizeSettings({ toolbarStyle }).toolbarStyle, 'full')
+  })
+
   test('defaults survive a round trip unchanged', () => {
     assert.deepEqual(normalizeSettings(defaultSettings()), defaultSettings())
   })

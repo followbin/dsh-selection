@@ -32,6 +32,7 @@ To install the newest code from GitHub instead, enter `https://github.com/follow
 ## Features
 
 - **Toolbar**: the first few skills sit on the toolbar, the rest live in the ⋯ menu together with "Disable in this app" and "More settings…".
+- **Mini toolbar**: a single icon instead; rest the pointer on it and every skill drops down. Switch between the two from the toolbar's menu or the settings page.
 - **Built-in skills**: Translate, Summarize, Explain, Ask DSH, Read aloud, Copy, Polish, Search.
 - **Custom skills**: a name, an icon and an instruction. Try them on sample text before saving.
 - **Answers stream in** with Markdown, can be copied, regenerated, translated into another language or pinned on screen. When an answer is complete, a box below it takes follow-up questions, for every skill.
@@ -52,11 +53,12 @@ Windows needs no extra permission.
 ![The toolbar below a selection](docs/images/en/toolbar.png)
 
 - Select text and the toolbar appears below the selection. Press **Esc**, click elsewhere or start typing to dismiss it.
+- With the mini toolbar, rest the pointer on the icon (or click it) to open the skills; they close once the pointer has left.
 - **Ask DSH** opens a small chat about the selection. Type a question and press Enter; follow-up questions keep the context.
 - Drag the toolbar, or a panel by its header, to move it; it stays where you put it.
 - In a result panel, the pin keeps it open while you click elsewhere (a new selection still replaces it); the language menu re-translates into another language. Click into the answer to select part of it and copy with ⌘C.
 - Once an answer is complete, type a follow-up in the box below it, for example "more formal" after a translation. Regenerating, or choosing another language, starts the conversation over.
-- **⋯ → Disable in this app** stops the toolbar in the current app. **⋯ → More settings…** opens the settings page in DSH.
+- **⋯ → Use the mini toolbar** turns the toolbar into a single icon, and **Use the full toolbar** in its menu turns it back. **⋯ → Disable in this app** stops the toolbar in the current app. **⋯ → More settings…** opens the settings page in DSH.
 
 ![An explanation, then a follow-up question and its answer](docs/images/en/follow-up.png)
 
@@ -73,8 +75,9 @@ Open **Selection assistant** in DSH's sidebar. The page has tabs: General, Skill
 | --- | --- | --- |
 | Show the toolbar when text is selected | on | |
 | Skills, their order, on/off | 8 built-ins | Drag, or focus the handle and press ↑ ↓. Custom skills can be edited and deleted. |
+| Toolbar style | full | Mini is a single icon whose menu holds every skill. Also switchable from the toolbar's menu. |
 | Show the toolbar | automatically | Or only while holding ⌥ / Alt during the selection. |
-| Skills on the toolbar | 5 | The rest go into the ⋯ menu. |
+| Skills on the toolbar | 5 | The rest go into the ⋯ menu. Full toolbar only. |
 | My language | 简体中文 | Auto translation goes into this language, or into English if the text is already in it. |
 | Translate into | auto | |
 | Summaries, explanations and answers in | my language | Or the language of the selected text, or a fixed language. |
