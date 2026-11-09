@@ -1,14 +1,10 @@
 // DSH plugin entry (Host side). Starts the selection service and mounts its HTTP API.
 // The settings page lives in client.js; the toolbar runs in a worker process (src/worker).
-import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { createHttpHandler, ROUTE } from './src/host/http.mjs'
 import { createLogger } from './src/host/log.mjs'
 import { createSelectionService } from './src/host/service.mjs'
 import { dataDirectory } from './src/shared/paths.mjs'
-
-// Shown on the settings page beside the update check.
-const { version } = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'))
 
 export const name = 'dsh-selection'
 export const inject = ['webServer', 'connection']
@@ -30,7 +26,6 @@ export function apply(ctx, config = {}) {
     dataDir,
     desktop,
     promptForPermission: config.promptForPermission !== false,
-    version,
   })
   log('info', 'plugin started', { platform: process.platform, desktop })
   ctx.effect(() => () => service.dispose(), 'dsh-selection: service')

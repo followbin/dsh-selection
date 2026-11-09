@@ -27,7 +27,7 @@ Now select some text in any app. Settings are under **Selection assistant** in D
 
 To install the newest code from GitHub instead, enter `https://github.com/followbin/dsh-selection` in step 2.
 
-**Updating**: when a new version is published, **General → Version** on the plugin's settings page offers **Update to x.y.z**. It is the same update as **Versions → Update** on the plugin's page under **Plugins**: DSH stops the old version, installs the new one and puts the old one back if that fails. A copy installed from GitHub or a local folder cannot update this way: uninstall it and install it again. Your settings and usage are kept, because they are stored in `~/.dsh/selection`, outside the plugin.
+**Updating**: when a new version is published, the plugin's page under **Plugins** lists it in **Versions**; click **Update**. A copy installed from GitHub or a local folder has no **Versions** section: uninstall it and install it again. Your settings and usage are kept, because they are stored in `~/.dsh/selection`, outside the plugin.
 
 ## Features
 

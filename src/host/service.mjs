@@ -30,14 +30,12 @@ export class BadRequest extends Error {}
  *   platform?: string,
  *   startWorker?: typeof startWorker,
  *   openExternal?: (url: string) => void,
- *   version?: string,
  * }} options `desktop` is false when the Host is not on the user's machine (e.g. a remote web Host).
  *   Tests replace `platform`, `startWorker` and `openExternal`.
  */
 export function createSelectionService({
   getLlm, log, dataDir = dataDirectory(), desktop, promptForPermission = true,
   platform = process.platform, startWorker: launchWorker = startWorker, openExternal = (url) => openWithSystem(url, log),
-  version = '',
 }) {
   const settings = createSettingsStore({ file: join(dataDir, 'settings.json'), log })
   const model = createModelClient({ getLlm, log })
@@ -243,7 +241,6 @@ export function createSelectionService({
         defaults: defaultSettings(),
         status,
         recentApps: [...recentApps],
-        version,
         catalog: {
           builtins: BUILTIN_SKILLS,
           languages: LANGUAGES,
