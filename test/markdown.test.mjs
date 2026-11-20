@@ -36,4 +36,10 @@ describe('markdown renderer', () => {
   test('emphasis does not eat list markers or snake_case', () => {
     assert.equal(render('*a* and snake_case_name'), '<p><em>a</em> and snake_case_name</p>')
   })
+
+  test('bold wraps code spans and links, while asterisks inside code stay literal', () => {
+    assert.equal(render('**`order.items` is `undefined`**'), '<p><strong><code>order.items</code> is <code>undefined</code></strong></p>')
+    assert.equal(render('`a**b**c` and **[docs](https://x.dev/a_b)**'), '<p><code>a**b**c</code> and <strong><a data-href="https://x.dev/a_b">docs</a></strong></p>')
+    assert.equal(render('[the `api` docs](https://x.dev)'), '<p><a data-href="https://x.dev">the <code>api</code> docs</a></p>')
+  })
 })

@@ -75,7 +75,8 @@ body.dragging, body.dragging * { cursor: grabbing !important; }
 .question:empty { display: none; }
 .question:not(:empty) + .answer { margin-top: 8px; }
 .answer { word-break: break-word; user-select: text; -webkit-user-select: text; cursor: text; }
-.answer.plain { white-space: pre-wrap; tab-size: 4; }
+/* Extracted tables come Tab-separated: stops wider than a typical cell keep the columns lined up. */
+.answer.plain { white-space: pre-wrap; tab-size: 8; tab-size: 10ch; }
 
 /* Waiting for the first piece, and still streaming. */
 .turn.pending .answer:empty::before { content: attr(data-waiting); color: var(--ink-2); }

@@ -17,7 +17,12 @@ const AWAKE_KEY = 'pins'
 /** How often the host checks which pin the pointer is over. */
 const HOVER_TICK_MS = 50
 /** How often a corner resize follows the pointer. */
-const RESIZE_TICK_MS = 7
+/**
+ * How often a corner drag samples the pointer. On Windows each new size also resizes the
+ * page's WebView2, which redraws at most once per display frame; sampling faster only queues
+ * sizes it draws late, so the pin trails the pointer.
+ */
+const RESIZE_TICK_MS = { darwin: 7, win32: 16 }
 const ZOOM_MIN = 0.15
 const ZOOM_MAX = 5
 /** Smallest side, in points, a pin can be resized or zoomed down to. */
@@ -162,6 +167,9 @@ export function createPins({ app, native, log, locale, awake, onAction }) {
     syncBadge(entry)
   }
 
+  /** When a queued zoom applies: at once, or on Windows at the next display frame. */
+  const nextResize = native.platform === 'win32' ? (fn) => setTimeout(fn, RESIZE_TICK_MS.win32) : setImmediate
+
   const clampZoom = (entry, z) => {
     const min = Math.max(ZOOM_MIN, MIN_SIDE / Math.min(entry.base.width, entry.base.height))
     return Math.min(ZOOM_MAX, Math.max(min, z))
@@ -182,14 +190,15 @@ export function createPins({ app, native, log, locale, awake, onAction }) {
 
   /**
    * Zoom by a factor, keeping a global point fixed on the image. Wheel steps that arrive
-   * within one tick are multiplied together and applied once.
+   * before the next resize are multiplied together and applied once: within one tick, or on
+   * Windows within one display frame (see RESIZE_TICK_MS).
    */
   function zoomBy(entry, factor, anchor) {
     entry.pendingZoom = (entry.pendingZoom ?? 1) * factor
     entry.pendingAnchor = anchor
     if (entry.zoomQueued) return
     entry.zoomQueued = true
-    setImmediate(() => {
+    nextResize(() => {
       entry.zoomQueued = false
       const f = currentFrame(entry)
       const z1 = clampZoom(entry, entry.zoom * entry.pendingZoom)
@@ -227,12 +236,13 @@ export function createPins({ app, native, log, locale, awake, onAction }) {
       const dx = west ? fixed.x - p.x : p.x - fixed.x
       const dy = north ? fixed.y - p.y : p.y - fixed.y
       const z = clampZoom(entry, (dx * W + dy * H) / (W * W + H * H))
-      if (z === entry.zoom && entry.frame) return
+      // Under half a point of change moves no edge: leave the window alone.
+      if (entry.frame && Math.abs(z - entry.zoom) * Math.max(W, H) < 0.5) return
       entry.zoom = z
       const width = W * z, height = H * z
       apply(entry, { x: west ? fixed.x - width : fixed.x, y: north ? fixed.y - height : fixed.y, width, height })
       settle(entry)
-    }, RESIZE_TICK_MS)
+    }, RESIZE_TICK_MS[native.platform] ?? 16)
   }
   function stopResize(entry) {
     if (entry.resizeTimer) clearInterval(entry.resizeTimer)

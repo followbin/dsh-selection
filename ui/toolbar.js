@@ -3,7 +3,7 @@
   const STRINGS = {
     zh: {
       more: '更多', disableApp: '在此应用中禁用', settings: '更多设置…', copied: '已复制', stop: '停止',
-      assistant: '划词助手', miniStyle: '切换为迷你模式', fullStyle: '切换为常规模式',
+      assistant: '划词技能', miniStyle: '切换为迷你模式', fullStyle: '切换为常规模式',
       close: '关闭', copyResult: '复制结果', retry: '重新生成', pin: '固定窗口', translateTo: '译为', auto: '自动',
       askPlaceholder: '就这段内容问点什么…', followPlaceholder: '接着问…', send: '发送', waiting: '正在生成', retryShort: '重试', from: '来自 {app}',
       errors: {
@@ -16,7 +16,7 @@
     },
     en: {
       more: 'More', disableApp: 'Disable in this app', settings: 'More settings…', copied: 'Copied', stop: 'Stop',
-      assistant: 'Selection assistant', miniStyle: 'Use the mini toolbar', fullStyle: 'Use the full toolbar',
+      assistant: 'Selection skills', miniStyle: 'Use the mini toolbar', fullStyle: 'Use the full toolbar',
       close: 'Close', copyResult: 'Copy result', retry: 'Regenerate', pin: 'Keep open', translateTo: 'Translate to', auto: 'Auto',
       askPlaceholder: 'Ask something about this text…', followPlaceholder: 'Ask a follow-up…', send: 'Send', waiting: 'Generating', retryShort: 'Retry', from: 'from {app}',
       errors: {

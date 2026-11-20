@@ -240,12 +240,12 @@ describe('loading', () => {
 describe('language', () => {
   const LABELS = {
     en: {
-      controls: ['More', 'Selection assistant', 'Translate to', 'Keep open', 'Copy result', 'Regenerate', 'Close', 'Send'],
+      controls: ['More', 'Selection skills', 'Translate to', 'Keep open', 'Copy result', 'Regenerate', 'Close', 'Send'],
       menu: ['Use the mini toolbar', 'Disable in this app', 'More settings…'],
       placeholder: 'Ask something about this text…',
     },
     zh: {
-      controls: ['更多', '划词助手', '译为', '固定窗口', '复制结果', '重新生成', '关闭', '发送'],
+      controls: ['更多', '划词技能', '译为', '固定窗口', '复制结果', '重新生成', '关闭', '发送'],
       menu: ['切换为迷你模式', '在此应用中禁用', '更多设置…'],
       placeholder: '就这段内容问点什么…',
     },

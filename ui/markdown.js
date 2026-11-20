@@ -25,17 +25,19 @@
   }
 
   function inline(text) {
-    return String(text).replace(/\u0000/g, '').split(/(`[^`\n]+`)/g).map((part) => {
-      if (/^`[^`\n]+`$/.test(part)) return `<code>${escapeHtml(part.slice(1, -1))}</code>`
-      // Links are set aside while emphasis is applied, so an underscore or asterisk in a URL stays
-      // part of it, and **[a link](…)** still turns bold.
-      const links = []
-      const marked = part.replace(LINK, (match, label, href) => {
-        links.push(`<a data-href="${escapeHtml(href)}">${emphasis(escapeHtml(label))}</a>`)
-        return `\u0000${links.length - 1}\u0000`
-      })
-      return emphasis(escapeHtml(marked)).replace(/\u0000(\d+)\u0000/g, (match, index) => links[Number(index)])
-    }).join('')
+    // Code spans and links are set aside while emphasis is applied, so an asterisk or underscore in
+    // code or a URL stays literal, and **`code`** or **[a link](…)** still turns bold.
+    const held = []
+    const hold = (html) => `\u0000${held.push(html) - 1}\u0000`
+    const marked = String(text).replace(/\u0000/g, '')
+      .replace(/`([^`\n]+)`/g, (match, code) => hold(`<code>${escapeHtml(code)}</code>`))
+      .replace(LINK, (match, label, href) => hold(`<a data-href="${escapeHtml(href)}">${emphasis(escapeHtml(label))}</a>`))
+    // A link label can hold a code span, so a restored piece may contain an earlier one.
+    let html = emphasis(escapeHtml(marked))
+    for (let pass = 0; pass <= held.length && html.includes('\u0000'); pass += 1) {
+      html = html.replace(/\u0000(\d+)\u0000/g, (match, index) => held[Number(index)])
+    }
+    return html
   }
 
   function isBlockStart(line) {
