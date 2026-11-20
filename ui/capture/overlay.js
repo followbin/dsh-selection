@@ -931,15 +931,14 @@ async function emit(type, extra = {}, e = null) {
 }
 
 // --- keyboard ----------------------------------------------------------------
-// Synthetic Command shortcuts (another app's selection tool posting a copy after a drag)
-// are recognised by keys.js; here they are dropped and reported.
+/** The Command or Control shortcuts this page answers; keys.js decides whether a person pressed one. */
+const SHORTCUT_KEYS = new Set(['c', 'z', 's', 'p'])
+
 addEventListener('keydown', (e) => {
   if (e.key === 'Meta' || e.key === 'Control') return
-  const synthetic = isSyntheticShortcut(e)
-  const mod = (e.metaKey || e.ctrlKey) && !synthetic
-  if (synthetic && mode === MODE.PICKED) {
-    post({ type: 'shortcut-ignored', key: e.key, meta: e.metaKey, ctrl: e.ctrlKey, sincePickMs: Math.round(performance.now() - pickedAt) })
+  if ((e.metaKey || e.ctrlKey) && SHORTCUT_KEYS.has(e.key.toLowerCase())) {
     e.preventDefault()
+    routeShortcut(e, runShortcut, post)
     return
   }
   // Esc leaves the capture from any state, as in other capture tools. Typing in the ask
@@ -948,15 +947,8 @@ addEventListener('keydown', (e) => {
     post({ type: 'cancel' })
     return
   }
-  // While a region is being chosen, the keys act on the magnifier: Command-C copies the
-  // colour under the pointer and Shift switches between RGB and HEX.
+  // While a region is being chosen, Shift switches the magnifier between RGB and HEX.
   if (mode !== MODE.PICKED) {
-    if (mod && e.key.toLowerCase() === 'c') {
-      e.preventDefault()
-      if (frozen) copyLoupeColour()
-      else post({ type: 'copy-color' })
-      return
-    }
     if (e.key === 'Shift' && !e.repeat) {
       if (frozen) { loupeHex = !loupeHex; if (loupeAt) drawLoupe(loupeAt.x, loupeAt.y) }
       else post({ type: 'color-format' })
@@ -964,14 +956,6 @@ addEventListener('keydown', (e) => {
     }
     return
   }
-  if (mod && e.key.toLowerCase() === 'z') {
-    e.preventDefault()
-    e.shiftKey ? restore(future, history) : restore(history, future)
-    return
-  }
-  if (mod && e.key.toLowerCase() === 'c') { e.preventDefault(); return emit('copy', {}, e) }
-  if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); return emit('save', {}, e) }
-  if (mod && e.key.toLowerCase() === 'p') { e.preventDefault(); return emit('pin', {}, e) }
   if ((e.key === 'Delete' || e.key === 'Backspace') && selectedId) {
     e.preventDefault()
     snapshot()
@@ -994,6 +978,24 @@ addEventListener('keydown', (e) => {
   }
   if (e.key === 'Enter') { e.preventDefault(); emit('done', {}, e) }
 })
+
+/**
+ * One Command or Control shortcut a person pressed. While a region is being chosen, Command-C
+ * copies the colour under the magnifier; once one is chosen, the shortcuts act on the capture.
+ * @param {string} key lower case.
+ * @param {boolean} shift
+ */
+function runShortcut(key, shift) {
+  if (mode !== MODE.PICKED) {
+    if (key === 'c') { if (frozen) copyLoupeColour(); else post({ type: 'copy-color' }) }
+    return
+  }
+  const at = { type: 'shortcut', key }
+  if (key === 'z') return shift ? restore(future, history) : restore(history, future)
+  if (key === 'c') return emit('copy', {}, at)
+  if (key === 's') return emit('save', {}, at)
+  if (key === 'p') return emit('pin', {}, at)
+}
 
 function setMode(next) {
   if (next === MODE.PICKED && mode !== MODE.PICKED) pickedAt = performance.now()
@@ -1146,6 +1148,8 @@ document.addEventListener('mouseleave', hideLoupe)
 
 // --- host interface ----------------------------------------------------------
 window.shot = {
+  /** A shortcut the process confirmed a person pressed (see keys.js). */
+  shortcut(key, shift) { runShortcut(key, shift) },
   /** Called right after the window is ordered front; rAF only runs once visible. */
   shown(id, ratio) {
     round = id

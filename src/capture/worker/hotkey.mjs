@@ -92,10 +92,11 @@ const ECHO_MS = 600
  *   onStatus?: (status: { spec: string | null, registered: boolean, reason: string | null, listening: boolean }) => void,
  *   load?: () => any,
  *   debugKeys?: boolean,
- * }} options `load` is injected by tests; by default the vendored selection-hook is used.
+ *   platform?: string,
+ * }} options `load` and `platform` are injected by tests; by default the vendored selection-hook is used.
  * @returns {{ setSpec: (spec: string) => boolean, status: () => object, dispose: () => void, available: boolean }}
  */
-export function createHotkey({ spec, onTrigger, log, native, onStatus, load, debugKeys = false }) {
+export function createHotkey({ spec, onTrigger, log, native, onStatus, load, debugKeys = false, platform = process.platform }) {
   let current = spec || null
   let chord = parseHotkey(current)
   if (!chord && current) log('warn', 'unparseable hotkey; capture can still be triggered from DSH', { spec: current })
@@ -171,15 +172,24 @@ export function createHotkey({ spec, onTrigger, log, native, onStatus, load, deb
 
   try {
     const SelectionHook = (load ?? (() => require('../../../vendor/selection-hook/index.js')))()
-    hook = new (SelectionHook.default ?? SelectionHook)()
-    hook.on('key-down', onDown)
-    hook.on('key-up', onUp)
-    // This hook exists for key events only. selection-hook's defaults also watch every
-    // drag for a text selection and, when Accessibility cannot read it, synthesize a copy
-    // keystroke into the frontmost app. Inside the capture overlay that drag is the
-    // region pick, so the synthetic copy landed in the page and ended the capture.
-    hook.start({ debug: false, enableClipboard: false, selectionPassiveMode: true })
-    listening = true
+    const instance = new (SelectionHook.default ?? SelectionHook)()
+    // Listening for keys without the Accessibility grant makes macOS ask for keystroke access
+    // the moment the plugin loads. That grant is the selection toolbar's to ask for; until DSH
+    // has it, system registration alone delivers the shortcut, and the next capture process
+    // listens too.
+    if (platform === 'darwin' && !instance.macIsProcessTrusted()) {
+      log('info', 'shortcut listener waits for the Accessibility grant')
+    } else {
+      hook = instance
+      hook.on('key-down', onDown)
+      hook.on('key-up', onUp)
+      // This hook exists for key events only. selection-hook's defaults also watch every
+      // drag for a text selection and, when Accessibility cannot read it, synthesize a copy
+      // keystroke into the frontmost app. Inside the capture overlay that drag is the
+      // region pick, so the synthetic copy landed in the page and ended the capture.
+      hook.start({ debug: false, enableClipboard: false, selectionPassiveMode: true })
+      listening = true
+    }
   } catch (error) {
     log('warn', 'selection-hook unavailable; the shortcut relies on system registration', { error: String(error?.message ?? error) })
     try { hook?.off?.('key-down', onDown); hook?.off?.('key-up', onUp) } catch { /* never started */ }

@@ -56,20 +56,27 @@ $('bar').addEventListener('click', (e) => {
   if (b) post({ type: b.id })
 })
 
+/** The Command or Control shortcuts a pin answers; keys.js decides whether a person pressed one. */
+const SHORTCUT_KEYS = new Set(['c', 's', '=', '+', '-', '0'])
+
 addEventListener('keydown', (e) => {
   if (e.key === 'Escape') return post({ type: 'close' })
-  // A copy posted by another app's selection tool after a click here must not copy or
-  // save the pin (see keys.js).
-  if (isSyntheticShortcut(e)) { e.preventDefault(); return }
-  const mod = e.metaKey || e.ctrlKey
-  if (!mod) return
-  const k = e.key.toLowerCase()
-  if (k === 'c') { e.preventDefault(); return post({ type: 'copy' }) }
-  if (k === 's') { e.preventDefault(); return post({ type: 'save' }) }
-  if (k === '=' || k === '+') { e.preventDefault(); return post({ type: 'zoom-step', step: 'in' }) }
-  if (k === '-') { e.preventDefault(); return post({ type: 'zoom-step', step: 'out' }) }
-  if (k === '0') { e.preventDefault(); return post({ type: 'zoom-step', step: 'reset' }) }
+  if (!(e.metaKey || e.ctrlKey) || !SHORTCUT_KEYS.has(e.key.toLowerCase())) return
+  e.preventDefault()
+  routeShortcut(e, runShortcut, post)
 })
+
+/**
+ * One Command or Control shortcut a person pressed: copy, save or zoom the pin.
+ * @param {string} key lower case.
+ */
+function runShortcut(key) {
+  if (key === 'c') return post({ type: 'copy' })
+  if (key === 's') return post({ type: 'save' })
+  if (key === '=' || key === '+') return post({ type: 'zoom-step', step: 'in' })
+  if (key === '-') return post({ type: 'zoom-step', step: 'out' })
+  if (key === '0') return post({ type: 'zoom-step', step: 'reset' })
+}
 
 // --- host interface ----------------------------------------------------------
 window.surface = {
@@ -87,6 +94,8 @@ window.surface = {
     el.hidden = text === null
     if (text !== null) el.textContent = text
   },
+  /** A shortcut the process confirmed a person pressed (see keys.js). */
+  shortcut(key) { runShortcut(key) },
   theme(mode) {
     if (mode === 'light' || mode === 'dark') document.documentElement.dataset.theme = mode
     else delete document.documentElement.dataset.theme

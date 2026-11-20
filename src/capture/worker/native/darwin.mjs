@@ -55,6 +55,8 @@ const cgEventCreate = CG.func('void *CGEventCreate(void *source)')
 const cgEventLocation = CG.func('CGPoint CGEventGetLocation(void *event)')
 const cgDisplayIsAsleep = CG.func('bool CGDisplayIsAsleep(uint32_t display)')
 const cgButtonState = CG.func('bool CGEventSourceButtonState(int32_t stateID, uint32_t button)')
+const cgFlagsState = CG.func('uint64_t CGEventSourceFlagsState(int32_t stateID)')
+const cgSecondsSince = CG.func('double CGEventSourceSecondsSinceLastEventType(int32_t stateID, uint32_t eventType)')
 
 const ReconfigCb = koffi.proto('void ReconfigCb(uint32_t display, uint32_t flags, void *userInfo)')
 const cgRegisterReconfig = CG.func('int32_t CGDisplayRegisterReconfigurationCallback(ReconfigCb *cb, void *userInfo)')
@@ -224,6 +226,32 @@ export function cursorPoint() {
   const p = cgEventLocation(event)
   cfRelease(event)
   return { x: p.x, y: p.y }
+}
+
+const HID_STATE = 1 // kCGEventSourceStateHIDSystemState: keyboards and mice only
+const LEFT_MOUSE_UP = 2 // kCGEventLeftMouseUp
+const KEY_DOWN = 10 // kCGEventKeyDown
+const FLAGS_CHANGED = 12 // kCGEventFlagsChanged
+const MASK_COMMAND = 0x100000n
+const MASK_CONTROL = 0x40000n
+/** How long a modifier let go of still counts; a page's question arrives within a few tens of milliseconds. */
+const RELEASE_GRACE_S = 0.3
+
+/**
+ * The Command and Control keys a person is pressing, read from the hardware state table, which
+ * keystrokes posted by other processes never change. A modifier let go of within RELEASE_GRACE_S
+ * still counts when a key was pressed on the keyboard in that time and after the last mouse
+ * release, so a quick ⌘C is not lost on its way here, while the copy another app posts right
+ * after a drag has no key press of its own behind it.
+ * @returns {{ meta: boolean, ctrl: boolean }}
+ */
+export function heldModifiers() {
+  const flags = BigInt(cgFlagsState(HID_STATE))
+  const sinceKey = cgSecondsSince(HID_STATE, KEY_DOWN)
+  const justTyped = sinceKey < RELEASE_GRACE_S
+    && cgSecondsSince(HID_STATE, FLAGS_CHANGED) < RELEASE_GRACE_S
+    && sinceKey < cgSecondsSince(HID_STATE, LEFT_MOUSE_UP)
+  return { meta: justTyped || Boolean(flags & MASK_COMMAND), ctrl: justTyped || Boolean(flags & MASK_CONTROL) }
 }
 
 // --- Global hot key -----------------------------------------------------------

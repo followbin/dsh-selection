@@ -6,6 +6,8 @@ import { after, describe, test } from 'node:test'
 import { createSelectionService } from '../src/host/service.mjs'
 import { canonicalHotkey, defaultSettings, normalizeSettings } from '../src/host/settings.mjs'
 import { actionPrompt, systemPrompt } from '../src/capture/host/prompts.mjs'
+import { createHotkey } from '../src/capture/worker/hotkey.mjs'
+import { personHolds, shortcutArgs } from '../src/capture/worker/modifiers.mjs'
 
 const directory = mkdtempSync(join(tmpdir(), 'dsh-selection-capture-'))
 after(() => rmSync(directory, { recursive: true, force: true }))
@@ -26,12 +28,12 @@ function fakeWorkers() {
   const workers = { selection: null, capture: null }
   workers.start = (options) => {
     const which = options.workerPath.includes('/capture/') ? 'capture' : 'selection'
-    const entry = { options, sent: [], stopped: false }
+    const entry = { options, sent: [], stopped: false, restarts: 0 }
     workers[which] = entry
     options.onState({ state: 'running', pid: which === 'capture' ? 2 : 1 })
     return {
       send: (message) => entry.sent.push(message),
-      restart() {},
+      restart() { entry.restarts += 1 },
       stop: async () => { entry.stopped = true; options.onState({ state: 'stopped', pid: null }) },
     }
   }
@@ -199,6 +201,18 @@ describe('screenshot process under the selection service', () => {
     await service.dispose()
   })
 
+  test('granting Accessibility restarts the screenshot process once, so its shortcut listener starts', async () => {
+    const { service, workers } = createService('grant')
+    workers.selection.options.onMessage({ type: 'permission', trusted: false, prompted: true })
+    assert.equal(workers.capture.restarts, 0)
+    workers.selection.options.onMessage({ type: 'permission', trusted: true })
+    assert.equal(workers.capture.restarts, 1)
+    // The toolbar process restarts after the grant and reports it again.
+    workers.selection.options.onMessage({ type: 'permission', trusted: true })
+    assert.equal(workers.capture.restarts, 1)
+    await service.dispose()
+  })
+
   test('the shortcut\'s registration reaches the status the settings page reads', async () => {
     const { service, workers } = createService('hotkey')
     workers.capture.options.onMessage({ type: 'hotkey', spec: 'Alt+D', registered: false, reason: 'taken', listening: true })
@@ -244,5 +258,42 @@ describe('screenshot process under the selection service', () => {
     assert.equal(workers.capture, null)
     assert.equal(service.getState().status.capture.supported, false)
     await service.dispose()
+  })
+})
+
+describe('capture process', () => {
+  /** selection-hook as far as the shortcut uses it, reporting a fixed Accessibility state. */
+  function fakeHook(trusted) {
+    const made = { started: 0 }
+    class Hook {
+      on() {}
+      off() {}
+      start() { made.started += 1; return true }
+      stop() {}
+      macIsProcessTrusted() { return trusted }
+    }
+    return { load: () => Hook, made }
+  }
+
+  test('on macOS the shortcut listener starts only once DSH has the Accessibility grant', () => {
+    const quiet = { onTrigger() {}, log() {}, spec: 'Alt+D', platform: 'darwin' }
+    const untrusted = fakeHook(false)
+    const before = createHotkey({ ...quiet, load: untrusted.load })
+    assert.deepEqual([before.status().listening, untrusted.made.started], [false, 0])
+    before.dispose()
+    const trusted = fakeHook(true)
+    const after = createHotkey({ ...quiet, load: trusted.load })
+    assert.deepEqual([after.status().listening, trusted.made.started], [true, 1])
+    after.dispose()
+  })
+
+  test('a page\'s shortcut runs only when the keyboard holds the modifier it carries', () => {
+    const holding = (meta, ctrl) => ({ heldModifiers: () => ({ meta, ctrl }) })
+    assert.equal(personHolds(holding(true, false), { meta: true }), true)
+    assert.equal(personHolds(holding(false, false), { meta: true }), false, 'a copy another app posts')
+    assert.equal(personHolds(holding(true, false), { ctrl: true }), false)
+    assert.equal(personHolds({}, { meta: true }), false, 'a platform that cannot tell says no')
+    assert.deepEqual(shortcutArgs({ key: 'c', shift: 1 }), ['c', true])
+    assert.deepEqual(shortcutArgs({ key: 'x'.repeat(40) }), ['x'.repeat(8), false])
   })
 })

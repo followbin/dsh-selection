@@ -174,6 +174,9 @@ export function createSelectionService({
         setStatus({ hook: Boolean(message.hookStarted) })
         break
       case 'permission':
+        // The screenshot process listens for its shortcut only with this grant (see
+        // src/capture/worker/hotkey.mjs); a grant made while it runs needs a fresh process.
+        if (message.trusted && status.permission === 'denied') capture.restart()
         setStatus({ permission: message.trusted ? 'granted' : 'denied' })
         break
       case 'selection':

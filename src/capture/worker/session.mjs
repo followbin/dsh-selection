@@ -3,6 +3,7 @@
 import { mkdirSync, readFileSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 import { BLOCKED } from '../shared/protocol.mjs'
+import { personHolds, shortcutArgs } from './modifiers.mjs'
 
 /** Base64 payload of a `data:image/png;base64,...` URL, or null. */
 function pngFromDataUrl(dataUrl) {
@@ -90,8 +91,9 @@ export function createCaptureSession({ native, overlay, tracker, dataDir, log, o
     handle(displayId, message) {
       if (!active) return
       switch (message?.type) {
-        case 'shortcut-ignored':
-          log('info', 'ignored a shortcut with no physical modifier', { display: displayId, key: message.key, meta: message.meta, ctrl: message.ctrl, sincePickMs: message.sincePickMs })
+        case 'shortcut-check':
+          if (personHolds(native, message)) overlay.shortcut(displayId, ...shortcutArgs(message))
+          else log('info', 'ignored a shortcut with no physical modifier', { display: displayId, key: message.key, meta: message.meta, ctrl: message.ctrl })
           return
 
         case 'crop-ok':

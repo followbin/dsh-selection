@@ -543,21 +543,27 @@ CASES.push(
     },
   },
   {
-    name: 'a synthesized copy right after release does not end the capture',
+    name: 'a copy keystroke with no modifier press waits for the process to confirm a person pressed it',
     async run() {
       await freshRegion()
       window.__harness.clear()
       syntheticCopy()
       await sleep(80)
-      const ignored = window.__harness.last('shortcut-ignored')
-      const copied = window.__harness.last('copy')
-      // A real Command-C still works.
+      const asked = window.__harness.last('shortcut-check')
+      const copiedUnasked = Boolean(window.__harness.last('copy'))
+      // The process found Command held on the keyboard: the page runs the shortcut.
+      window.shot.shortcut('c', false)
+      for (let i = 0; i < 40 && !window.__harness.last('copy'); i++) await sleep(20)
+      const confirmed = Boolean(window.__harness.last('copy'))
+      // A Command press the page sees itself needs no question.
+      window.__harness.clear()
       key('c', { metaKey: true })
-      await sleep(120)
-      const realCopy = window.__harness.last('copy')
+      for (let i = 0; i < 40 && !window.__harness.last('copy'); i++) await sleep(20)
+      const direct = Boolean(window.__harness.last('copy'))
+      const askedForDirect = Boolean(window.__harness.last('shortcut-check'))
       return {
-        pass: Boolean(ignored) && !copied && Boolean(realCopy),
-        detail: { ignored: Boolean(ignored), copiedBySynthetic: Boolean(copied), realCopyWorks: Boolean(realCopy) },
+        pass: asked?.key === 'c' && asked.meta === true && !copiedUnasked && confirmed && direct && !askedForDirect,
+        detail: { asked: asked ?? null, copiedUnasked, confirmed, direct, askedForDirect },
       }
     },
   },

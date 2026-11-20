@@ -362,6 +362,14 @@ export async function createOverlay({ native, displays, onMessage, log, locale =
       syncPump()
     },
 
+    /**
+     * Run a Command or Control shortcut on one display's page, once a person is known to hold it.
+     * @param {number} displayId
+     * @param {string} key the shortcut's key, lower case.
+     * @param {boolean} shift
+     */
+    shortcut(displayId, key, shift) { screens.get(displayId)?.call('shortcut', key, shift) },
+
     /** The frozen frame still held for one display, or null. */
     frameOf: (displayId) => screens.get(displayId)?.frame ?? null,
     displayOf: (displayId) => screens.get(displayId)?.display ?? null,

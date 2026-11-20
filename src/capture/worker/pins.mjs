@@ -7,6 +7,7 @@
 // page, lagged a frame behind the window on every step and shook while zooming.
 import { createFloat, createSpare } from './float.mjs'
 import { pageHtml } from './page.mjs'
+import { personHolds, shortcutArgs } from './modifiers.mjs'
 
 /** A pin opens slightly down-right of where it was captured, so it does not hide the original. */
 const OFFSET = 14
@@ -302,6 +303,10 @@ export function createPins({ app, native, log, locale, awake, onAction }) {
         return zoomBy(entry, factor, null)
       }
       case 'resize-start': return startResize(entry, String(message.corner ?? 'se'))
+      case 'shortcut-check':
+        if (personHolds(native, message)) api.call('shortcut', ...shortcutArgs(message))
+        else log('info', 'pin ignored a shortcut with no physical modifier', { id: api.id, key: message.key })
+        return
       case 'copy':
       case 'save':
       case 'ask':
