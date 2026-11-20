@@ -1,11 +1,14 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 (2026-11-20)
 
 - Screenshots join the plugin, now called 划词+截图 (Selection + Screenshot). Alt+D (⌥D) freezes every display; drag a region, annotate it (rectangle, circle, arrow, line, pen, text, numbered markers, blur), copy it with Enter, save it, pin it on screen, or run an AI action on it: Extract text, Translate, Explain, Ask, or your own. Answers open beside the capture as a short conversation with follow-ups. The shortcut is registered with the system, so the front app never receives it, and the settings page says when another app holds it or it matches a macOS system shortcut. Screenshots run in their own worker process; the screen-recording grant is asked for on the first capture only.
 - The settings page is regrouped: Selection and Screenshot each have a tab, and Models & language and Usage are shared. The vision model for screenshots is chosen and tested next to the text model; usage counts screenshot actions alongside skills.
 - The toolbar, the capture overlay, pins and answer panels follow DSH's interface language, as the settings page already did.
 - While the capture overlay is up, the toolbar stops reading selections, so dragging out a region is not taken for a text selection.
+- ⌘C, ⌘S, ⌘Z and ⌘P work in the capture overlay and on pins on macOS. A copy keystroke that another app's selection tool posts after a drag is still ignored: the screenshot process checks whether ⌘ is held on the keyboard itself.
+- Installing on a Mac asks for at most one permission at once: Accessibility for the toolbar. The screenshot process listens for its shortcut only once DSH has that grant (the system-registered shortcut needs none), and screen recording is asked for on the first capture.
+- The README shows a screenshot walk-through and an annotated capture, drawn from the real pages by `pnpm screenshots`.
 - Windows has been tried on real hardware; the README no longer calls it untested.
 
 ## 0.2.2 (2026-11-09)
