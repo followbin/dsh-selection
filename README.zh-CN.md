@@ -42,11 +42,15 @@
 
 ### 截图
 
+![按 ⌥D 框出一块区域，画上方框和箭头，点「翻译」，译文出现在截图旁的面板里](docs/images/zh/capture.gif)
+
 - **所有显示器一起截**：按快捷键冻结每块屏幕，拖出区域；框选和调整时看到的就是屏幕本身，鼠标旁有放大镜显示坐标和颜色（⌘C / Ctrl+C 复制颜色，Shift 切换 RGB/HEX）。
 - **标注**：矩形、圆、箭头、直线、画笔、文字、数字序号、模糊，选中后可以移动、缩放、改颜色和粗细，支持撤销和重做。
 - **复制、保存、贴图**：回车直接复制到剪贴板；贴图把截图钉在屏幕上，可以拖动、按角等比缩放、滚轮缩放。Esc 随时退出。
 - **截图 AI 功能**：提取文字、翻译、解释、问一问，也可以自己加（名称、图标、指令，保存前可以拿任意图片试一试）。回答出现在截图旁的面板里，可以追问、复制、重新生成、固定。
 - **快捷键向系统注册**：按下时只有截图响应，前台应用收不到；被其它软件占用、或和系统快捷键相同时，设置页会说明。
+
+![框选好的区域：红色方框和箭头标注，下方是标注工具栏和截图 AI 功能](docs/images/zh/capture.png)
 
 ### 共用
 
@@ -168,7 +172,7 @@ env ELECTRON_RUN_AS_NODE=1 "/Applications/DeepSeek Harness.app/Contents/MacOS/De
 | `pnpm test` | 单元测试：Host（设置、提示词、模型调用、HTTP 防护、worker 消息）、worker 的行为规则、工具栏页面和设置页（页面跑在 jsdom 里）。普通 Node 20 及以上就能跑。 |
 | `pnpm selftest` | 依次打开工具栏、「⋯」菜单和两种结果面板，检查原生窗口状态、布局，以及前台应用始终没变。不需要权限。加 `--interactive` 可以手动点 20 秒。 |
 | `pnpm dev` | 不经过 DSH、用演示模型运行真实的工具栏，设置存在 `~/.dsh/selection-dev`。在 macOS 上，授权弹窗针对的是你的终端应用。 |
-| `pnpm screenshots` | 用真实的工具栏页面和设置页、配上示例文字，重新生成 `docs/images/` 里的工具栏、追问、设置页截图和动图；安装步骤的截图是手工截的。加 `en` 或 `zh` 只生成一种语言。需要 Google Chrome 和 ffmpeg。 |
+| `pnpm screenshots` | 用真实的工具栏页面、设置页、截图浮层和回答面板，配上示例内容，重新生成 `docs/images/` 里的工具栏、追问、设置页、截图的图片和动图；安装步骤的截图是手工截的。加 `en` 或 `zh` 只生成一种语言，加 `selection` 或 `capture` 只生成划词或截图部分。需要 Google Chrome 和 ffmpeg。 |
 | `pnpm vendor:selection-hook [版本]` | 从 npm 更新 `vendor/selection-hook`。 |
 
 各部分怎么协作、为什么有些做法不寻常，见 [docs/architecture.md](docs/architecture.md)。

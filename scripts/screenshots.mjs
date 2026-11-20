@@ -1,7 +1,9 @@
 // Renders the README images in docs/images/<lang>/: the real toolbar page placed over a sample
-// document, the real settings page with sample data, and an animated walk-through.
+// document, the real settings page with sample data, an animated walk-through, and the real
+// capture overlay and answer panel over a sample desktop (capture.png, capture.gif).
 // Needs Google Chrome (headless), ffmpeg, and DSH installed: run `pnpm screenshots`, which uses DSH's
-// Electron in Node mode so the settings page can be drawn with DSH's own theme.
+// Electron in Node mode so the settings page can be drawn with DSH's own theme. Arguments narrow
+// the run: a language (zh, en) and/or a part (selection, capture).
 import { execFile, execFileSync } from 'node:child_process'
 import { promisify } from 'node:util'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
@@ -17,6 +19,8 @@ import { createHttpHandler } from '../src/host/http.mjs'
 import { createSelectionService } from '../src/host/service.mjs'
 import { defaultSettings } from '../src/host/settings.mjs'
 import { pageHtml } from '../src/worker/page.mjs'
+import { pageHtml as capturePage } from '../src/capture/worker/page.mjs'
+import { BUILTIN_ACTION_ICONS } from '../src/capture/shared/icons.mjs'
 
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 const DSH_THEME = '/Applications/DeepSeek Harness.app/Contents/Resources/app.asar/lib/welcome/design-platform.css'
@@ -125,10 +129,10 @@ const PARALLEL = 4
 const queue = []
 
 /** Queues one headless Chrome screenshot; `shoot()` takes them all, a few at a time. */
-function chrome(html, file, { width = 1100, height = 640, scale = 2 } = {}) {
+function chrome(html, file, { width = 1100, height = 640, scale = 2, budget = 1200 } = {}) {
   const page = join(work, `${Math.random().toString(36).slice(2)}.html`)
   writeFileSync(page, html)
-  queue.push({ page, file, width, height, scale })
+  queue.push({ page, file, width, height, scale, budget })
 }
 
 async function shoot() {
@@ -138,7 +142,7 @@ async function shoot() {
       await run(CHROME, [
         '--headless=new', '--disable-gpu', '--hide-scrollbars', '--no-first-run', '--no-default-browser-check',
         `--user-data-dir=${join(work, `chrome-${slot}`)}`, `--force-device-scale-factor=${job.scale}`,
-        `--window-size=${job.width},${job.height}`, '--virtual-time-budget=1200', `--screenshot=${job.file}`,
+        `--window-size=${job.width},${job.height}`, `--virtual-time-budget=${job.budget}`, `--screenshot=${job.file}`,
         pathToFileURL(job.page).href,
       ])
     }
@@ -298,13 +302,198 @@ async function settingsPage(lang, tab) {
     </head><body><div>${markup}</div></body></html>`
 }
 
-for (const lang of ['zh', 'en']) {
-  if (only.length && !only.includes(lang)) continue
-  stills(lang)
-  chrome(await settingsPage(lang, 'skills'), join(OUT, lang, 'settings-skills.png'), { width: 900, height: 860 })
-  chrome(await settingsPage(lang, 'usage'), join(OUT, lang, 'settings-usage.png'), { width: 900, height: 860 })
+
+// ---------- Screenshots: the shipped overlay and answer pages over a sample desktop ----------
+
+const DESK = { width: 1280, height: 720 }
+/** The region the scene drags out, and the annotations drawn in it (page coordinates). */
+const PICK = [176, 104, 742, 520]
+const BOX = [196, 418, 724, 456]
+const ARROW = [704, 318, 640, 424]
+
+// Sample content written for these images.
+const CAPTURE_STORY = {
+  zh: {
+    action: 'translate',
+    answer: '**季度更新**\n\n今年每个季度的营收都在增长。第四季度表现最好：亚洲的新客户数量翻了一倍多，而成本基本持平。\n\n| 季度 | 营收（百万美元） | 增长 |\n|---|---|---|\n| Q1 | 4.2 | 6% |\n| Q2 | 4.9 | 17% |\n| Q3 | 5.6 | 14% |\n| Q4 | 6.6 | 18% |',
+  },
+  en: {
+    action: 'explain',
+    answer: 'Revenue rose every quarter, from **$4.2M** in Q1 to **$6.6M** in Q4.\n\n- **Q4 grew fastest (18%)**, with new customers in Asia more than doubling.\n- Growth eased to 14% in Q3 before that jump.\n- Costs stayed flat, so most of the extra revenue is margin.',
+  },
+}
+
+/** The desktop the capture freezes: one document window. */
+function desktopHtml() {
+  const rows = [['Q1', '4.2', '6%'], ['Q2', '4.9', '17%'], ['Q3', '5.6', '14%'], ['Q4', '6.6', '18%']]
+  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><style>
+    :root { color-scheme: light; }
+    html, body { margin: 0; height: 100%; }
+    body { background: linear-gradient(135deg, #dbe4f0, #e8e1ef); font: 15.5px/1.7 -apple-system, "Helvetica Neue", sans-serif; }
+    .window { position: absolute; left: 150px; top: 56px; width: 620px; height: 600px; background: #fff; border-radius: 12px; overflow: hidden;
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.16), 0 0 0 1px rgba(15, 23, 42, 0.06); }
+    .titlebar { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px; border-bottom: 1px solid #eef0f3; color: #6b7280; font-size: 13px; }
+    .dot { width: 12px; height: 12px; border-radius: 50%; }
+    .title { margin-left: 10px; }
+    article { padding: 26px 46px; color: #1f2937; }
+    h1 { margin: 0 0 10px; font-size: 24px; }
+    p { margin: 0 0 16px; }
+    table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+    th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #e5e7eb; }
+    th { color: #6b7280; font-size: 13px; font-weight: 600; }
+  </style></head><body>
+    <div class="window">
+      <div class="titlebar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span><span class="title">quarterly-update.pdf</span></div>
+      <article>
+        <h1>Quarterly update</h1>
+        <p>Revenue grew in every quarter this year. The fourth quarter was the strongest: new customers in Asia more than doubled, while costs stayed flat.</p>
+        <table><tr><th>Quarter</th><th>Revenue ($M)</th><th>Growth</th></tr>${rows.map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join('')}</tr>`).join('')}</table>
+      </article>
+    </div>
+  </body></html>`
+}
+
+/**
+ * The overlay page as the worker loads it, over the frozen desktop, with the answer page in a
+ * frame where its window would open. `steps` runs once the frame is on screen.
+ */
+function captureScene(lang, frameUrl, steps) {
+  const story = CAPTURE_STORY[lang]
+  const actions = ['ocr', 'translate', 'explain', 'ask'].map((id) => ({ id, name: null, icon: BUILTIN_ACTION_ICONS[id] }))
+  // The capture pages have no head or body tags: additions go after the charset and at the end.
+  const answerPage = capturePage('answer').replace('<meta charset="utf-8">', `<meta charset="utf-8"><script>
+    window.ipc = { postMessage(raw) { const m = JSON.parse(raw); if (m.type === 'size') parent.answerHeight(m.height) } }
+  </script>`)
+  // Its own scope: the overlay's script already declares names such as `tool` at the top level.
+  const script = `(() => {
+    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+    const cursor = document.getElementById('cursor')
+    const point = (x, y) => { cursor.style.display = 'block'; cursor.style.left = x + 'px'; cursor.style.top = y + 'px' }
+    const fire = (type, x, y) => {
+      point(x, y)
+      ;(document.elementFromPoint(x, y) || document.body).dispatchEvent(new MouseEvent(type, { clientX: x, clientY: y, bubbles: true, cancelable: true, view: window }))
+    }
+    const tool = (name) => document.querySelector('#bar [data-tool="' + name + '"]').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, button: 0 }))
+    /** A drag from one point to another; a fraction below 1 stops with the button still down. */
+    async function drag([x1, y1, x2, y2], upTo = 1) {
+      fire('mousemove', x1, y1)
+      fire('mousedown', x1, y1)
+      const steps = 8
+      for (let i = 1; i <= Math.round(steps * upTo); i += 1) { fire('mousemove', Math.round(x1 + (x2 - x1) * i / steps), Math.round(y1 + (y2 - y1) * i / steps)); await sleep(4) }
+      if (upTo >= 1) { fire('mouseup', x2, y2); await sleep(60) }
+    }
+    const hover = (selector) => { const b = document.querySelector(selector).getBoundingClientRect(); point(b.x + b.width * 0.42, b.y + b.height * 0.62) }
+    const panel = document.getElementById('answer')
+    window.answerHeight = (height) => { panel.style.height = Math.min(560, height) + 'px' }
+    /** The capture ends and the answer panel opens beside the region, part of the reply in. */
+    async function answer(upTo) {
+      // The overlay is gone; only the desktop and the panel stay.
+      document.documentElement.classList.add('ended')
+      const image = new Image()
+      image.src = ${JSON.stringify(frameUrl)}
+      await image.decode()
+      const thumb = document.createElement('canvas')
+      const [x1, y1, x2, y2] = ${JSON.stringify(PICK)}
+      thumb.width = (x2 - x1) * 2; thumb.height = (y2 - y1) * 2
+      thumb.getContext('2d').drawImage(image, x1 * 2, y1 * 2, thumb.width, thumb.height, 0, 0, thumb.width, thumb.height)
+      await new Promise((resolve) => { panel.onload = resolve; panel.srcdoc = ${JSON.stringify(answerPage)} })
+      const surface = panel.contentWindow.surface
+      surface.locale(${JSON.stringify(lang)})
+      surface.theme('light')
+      surface.thumbnail(thumb.toDataURL('image/png'))
+      surface.open(${JSON.stringify(story.action)})
+      surface.begin(0, null)
+      const text = ${JSON.stringify(story.answer)}
+      if (upTo > 0) surface.chunk(0, text.slice(0, Math.ceil(text.length * upTo)))
+      if (upTo >= 1) surface.end(0)
+      panel.style.left = (x2 + 12) + 'px'
+      panel.style.top = y1 + 'px'
+      await sleep(80)
+      panel.style.visibility = 'visible'
+    }
+    addEventListener('load', async () => {
+      window.shot.locale(${JSON.stringify(lang)})
+      window.shot.theme('light')
+      window.shot.actions(${JSON.stringify(actions)})
+      await new Promise((resolve) => { window.frameReady = resolve; window.shot.frame(${JSON.stringify(frameUrl)}, 1, 2) })
+      window.shot.shown(1, 2)
+      await sleep(60)
+      ${steps}
+    })
+  })()`
+  return capturePage('overlay')
+    .replace('<meta charset="utf-8">', () => `<meta charset="utf-8"><script>
+      window.ipc = { postMessage(raw) { const m = JSON.parse(raw); if (m.type === 'frame-ready') window.frameReady?.() } }
+    </script><style>
+      html { background: url(${frameUrl}) 0 0 / 100% 100% no-repeat !important; }
+      #answer { position: fixed; z-index: 100; width: 440px; height: 160px; border: 0; border-radius: 12px; visibility: hidden; background: transparent;
+        box-shadow: 0 14px 44px rgba(15, 23, 42, 0.24), 0 0 0 0.5px rgba(15, 23, 42, 0.2); }
+      html.ended body > :not(#answer) { display: none !important; }
+      #cursor { position: fixed; z-index: 101; width: 17px; height: 25px; display: none; pointer-events: none; filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.35)); }
+    </style>`) + `<iframe id="answer"></iframe>
+      <svg id="cursor" viewBox="0 0 17 25"><path d="M1 1v19.5l4.6-4.4 3 7.2 3.2-1.4-3-7h6.4z" fill="#111" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"/></svg>
+      <script>${script.replace(/<\//g, '<\\/')}</script>`
+}
+
+/** The frozen desktop as a data URL, rendered once at 2x. */
+async function desktopFrame() {
+  const file = join(work, 'desktop.png')
+  chrome(desktopHtml(), file, { ...DESK, scale: 2 })
   await shoot()
-  await walkthrough(lang)
+  return `data:image/png;base64,${readFileSync(file).toString('base64')}`
+}
+
+/** The capture still (an annotated region with the toolbar) and the capture walk-through. */
+async function captureImages(lang, frameUrl) {
+  const frames = []
+  const hold = (steps, times) => { for (let i = 0; i < times; i += 1) frames.push(steps) }
+  const fractions = (count) => Array.from({ length: count }, (_, i) => (i + 1) / count)
+  hold(`fire('mousemove', ${PICK[0] + 40}, ${PICK[1] + 60})`, 5)
+  hold(`fire('mousemove', ${PICK[0]}, ${PICK[1]})`, 3)
+  for (const f of fractions(6)) hold(`await drag(${JSON.stringify(PICK)}, ${f})`, f < 1 ? 1 : 7)
+  const picked = `await drag(${JSON.stringify(PICK)})`
+  hold(`${picked}; tool('rect'); point(${BOX[0]}, ${BOX[1]})`, 3)
+  for (const f of fractions(5)) hold(`${picked}; tool('rect'); await drag(${JSON.stringify(BOX)}, ${f})`, f < 1 ? 1 : 4)
+  const boxed = `${picked}; tool('rect'); await drag(${JSON.stringify(BOX)})`
+  hold(`${boxed}; tool('arrow'); point(${ARROW[0]}, ${ARROW[1]})`, 3)
+  for (const f of fractions(5)) hold(`${boxed}; tool('arrow'); await drag(${JSON.stringify(ARROW)}, ${f})`, f < 1 ? 1 : 6)
+  const annotated = `${boxed}; tool('arrow'); await drag(${JSON.stringify(ARROW)})`
+  const button = `[data-ai="${CAPTURE_STORY[lang].action}"]`
+  hold(`${annotated}; hover('${button}')`, 8)
+  hold(`${annotated}; await answer(0)`, 3)
+  for (const f of fractions(10)) hold(`${annotated}; await answer(${f})`, f < 1 ? 1 : 26)
+
+  const dir = join(work, `capture-${lang}`)
+  mkdirSync(dir, { recursive: true })
+  chrome(captureScene(lang, frameUrl, `${annotated}; cursor.style.display = 'none'`), join(OUT, lang, 'capture.png'), { ...DESK, scale: 2, budget: 4000 })
+  const unique = [...new Set(frames)]
+  const shotOf = (steps) => join(dir, `unique-${unique.indexOf(steps)}.png`)
+  for (const steps of unique) chrome(captureScene(lang, frameUrl, steps), shotOf(steps), { ...DESK, scale: 1, budget: 4000 })
+  await shoot()
+  frames.forEach((steps, index) => writeFileSync(join(dir, `${String(index).padStart(3, '0')}.png`), readFileSync(shotOf(steps))))
+  execFileSync('ffmpeg', [
+    '-y', '-loglevel', 'error', '-framerate', '8', '-i', join(dir, '%03d.png'),
+    '-vf', 'scale=880:-1:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle',
+    join(OUT, lang, 'capture.gif'),
+  ])
+}
+
+const LANGS = ['zh', 'en']
+const langs = only.filter((arg) => LANGS.includes(arg))
+const parts = only.filter((arg) => !LANGS.includes(arg))
+const wants = (part) => parts.length === 0 || parts.includes(part)
+const frameUrl = wants('capture') ? await desktopFrame() : null
+for (const lang of LANGS) {
+  if (langs.length && !langs.includes(lang)) continue
+  mkdirSync(join(OUT, lang), { recursive: true })
+  if (wants('selection')) {
+    stills(lang)
+    chrome(await settingsPage(lang, 'selection'), join(OUT, lang, 'settings-skills.png'), { width: 900, height: 860 })
+    chrome(await settingsPage(lang, 'usage'), join(OUT, lang, 'settings-usage.png'), { width: 900, height: 860 })
+    await shoot()
+    await walkthrough(lang)
+  }
+  if (wants('capture')) await captureImages(lang, frameUrl)
   console.log(`${lang}: done`)
 }
 rmSync(work, { recursive: true, force: true })

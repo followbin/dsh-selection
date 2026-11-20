@@ -42,11 +42,15 @@ To install the newest code from GitHub instead, enter `https://github.com/follow
 
 ### Screenshot
 
+![Press ⌥D, drag out a region, draw a box and an arrow, choose Explain, and the answer opens beside the capture](docs/images/en/capture.gif)
+
 - **Every display at once**: the shortcut freezes each screen and you drag out a region; what you see while choosing and adjusting it is the screen itself, with a magnifier showing position and colour (⌘C / Ctrl+C copies the colour, Shift switches RGB/HEX).
 - **Annotations**: rectangle, circle, arrow, line, pen, text, numbered markers and blur, each selectable to move, resize or restyle, with undo and redo.
 - **Copy, save, pin**: Enter copies to the clipboard; a pin keeps the capture on screen, to drag, resize from its corners or zoom with the wheel. Esc leaves at any time.
 - **Screenshot AI actions**: Extract text, Translate, Explain and Ask, plus your own (a name, an icon and an instruction, tried on any image before saving). Answers open in a panel beside the capture, with follow-ups, copy, regenerate and pin.
 - **A shortcut registered with the system**: only the capture responds, the front app never sees the keys; the settings page says when another app holds them or they match a system shortcut.
+
+![A chosen region with a red box and an arrow, the annotation toolbar and the screenshot AI actions below it](docs/images/en/capture.png)
 
 ### Shared
 
@@ -163,7 +167,7 @@ After changing `src/worker/` or `ui/`, click **Restart the assistant** on the se
 | `pnpm test` | Unit tests for the Host (settings, prompts, model client, HTTP guards, worker messages), the worker's rules, the toolbar page and the settings page (the pages run in jsdom). Plain Node 20 or later is fine. |
 | `pnpm selftest` | Opens the toolbar, the ⋯ menu and both panel types, then checks native window state, layout and that the frontmost app never changes. No permission needed. Add `--interactive` to click around for 20 seconds. |
 | `pnpm dev` | Runs the real toolbar outside DSH with a demo model. Settings go to `~/.dsh/selection-dev`. On macOS the accessibility prompt is for your terminal app. |
-| `pnpm screenshots` | Redraws the toolbar, follow-up, settings and walkthrough images in `docs/images/` from the real pages with sample text; the install screenshots are taken by hand. Add `en` or `zh` for one language. Needs Google Chrome and ffmpeg. |
+| `pnpm screenshots` | Redraws the toolbar, follow-up, settings, walkthrough and screenshot images in `docs/images/` from the real pages (toolbar, settings, capture overlay, answer panel) with sample content; the install screenshots are taken by hand. Add `en` or `zh` for one language, `selection` or `capture` for one part. Needs Google Chrome and ffmpeg. |
 | `pnpm vendor:selection-hook [version]` | Refreshes `vendor/selection-hook` from npm. |
 
 How the pieces fit together, and why some unusual choices were made, is in [docs/architecture.md](docs/architecture.md).
