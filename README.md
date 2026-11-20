@@ -1,8 +1,8 @@
-# dsh-selection
+# dsh-selection — Selection + Screenshot
 
 [中文](README.zh-CN.md)
 
-Select text in any app and a small toolbar appears next to it: translate, summarize, explain, ask about it, read it aloud, copy, polish or search, with the models you already use in [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (DSH).
+Select text in any app and a small toolbar appears next to it: translate, summarize, explain, ask about it, read it aloud, copy, polish or search. Press ⌥D (Alt+D on Windows) to capture a region of any display: annotate it, pin it on screen, save it, or have AI extract, translate, explain or answer questions about it. Everything uses the models you already have in [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) (DSH).
 
 ![Select text, choose Explain, then ask a follow-up question](docs/images/en/walkthrough.gif)
 
@@ -31,20 +31,37 @@ To install the newest code from GitHub instead, enter `https://github.com/follow
 
 ## Features
 
+### Selection
+
 - **Toolbar**: the first few skills sit on the toolbar, the rest live in the ⋯ menu together with "Disable in this app" and "More settings…".
 - **Mini toolbar**: a single icon instead; rest the pointer on it and every skill drops down. Switch between the two from the toolbar's menu or the settings page.
 - **Built-in skills**: Translate, Summarize, Explain, Ask DSH, Read aloud, Copy, Polish, Search.
 - **Custom skills**: a name, an icon and an instruction. Try them on sample text before saving.
 - **Answers stream in** with Markdown, can be copied, regenerated, translated into another language or pinned on screen. When an answer is complete, a box below it takes follow-up questions, for every skill.
-- **Token usage**: the settings page counts requests and tokens per day, model and skill (numbers only, never text).
-- **Uses DSH's own models**: requests go through the account or API key configured in DSH. DeepSeek Flash is preferred, with thinking off for speed, and you can pick any other model DSH offers.
 - **Stays out of the way**: the toolbar never takes focus from the app you are working in, never shows a Dock icon, and floats above full-screen apps.
+
+### Screenshot
+
+- **Every display at once**: the shortcut freezes each screen and you drag out a region; what you see while choosing and adjusting it is the screen itself, with a magnifier showing position and colour (⌘C / Ctrl+C copies the colour, Shift switches RGB/HEX).
+- **Annotations**: rectangle, circle, arrow, line, pen, text, numbered markers and blur, each selectable to move, resize or restyle, with undo and redo.
+- **Copy, save, pin**: Enter copies to the clipboard; a pin keeps the capture on screen, to drag, resize from its corners or zoom with the wheel. Esc leaves at any time.
+- **Screenshot AI actions**: Extract text, Translate, Explain and Ask, plus your own (a name, an icon and an instruction, tried on any image before saving). Answers open in a panel beside the capture, with follow-ups, copy, regenerate and pin.
+- **A shortcut registered with the system**: only the capture responds, the front app never sees the keys; the settings page says when another app holds them or they match a system shortcut.
+
+### Shared
+
+- **Uses DSH's own models**: requests go through the account or API key configured in DSH. Selections prefer DeepSeek Flash, screenshots use a model that reads images, both with thinking off for speed; either can be changed on the settings page.
+- **Language**: your language, the translation direction and the answer language are one set for both.
+- **Token usage**: the settings page counts requests and tokens per day, model, skill and screenshot action (numbers only, never text or images).
 
 ## Permissions (macOS)
 
-When the plugin first runs, macOS asks whether **"DeepSeek Harness" may control your computer using accessibility features**. Choose *Open System Settings* and switch DeepSeek Harness on. The toolbar starts working within a second, without restarting anything. Without this permission macOS hides the selection from every app, so the toolbar cannot appear.
+Each permission is asked for when it is first needed, never both at once:
 
-The permission is granted to the DeepSeek Harness app as a whole. macOS attributes it to every process DSH starts, including commands run by agents. If that is not acceptable for you, do not grant it. You can revoke it at any time in System Settings → Privacy & Security → Accessibility.
+- **Accessibility (selection)**: when the plugin first runs, macOS asks whether **"DeepSeek Harness" may control your computer using accessibility features**. Choose *Open System Settings* and switch DeepSeek Harness on; it works within a second. Without it macOS hides the selection from every app, so the toolbar cannot appear.
+- **Screen recording (screenshots)**: the first time you press the capture shortcut, macOS asks whether DeepSeek Harness may record the screen. Switch it on in System Settings → Privacy & Security → Screen & System Audio Recording; it takes effect without a restart. The shortcut itself needs no permission.
+
+The settings page shows a notice for whichever permission is missing. Both are granted to the DeepSeek Harness app as a whole. macOS attributes it to every process DSH starts, including commands run by agents. If that is not acceptable for you, do not grant it. You can revoke it at any time in System Settings → Privacy & Security → Accessibility.
 
 Windows needs no extra permission.
 
@@ -64,7 +81,7 @@ Windows needs no extra permission.
 
 ## Settings
 
-Open **Selection assistant** in DSH's sidebar. The page has tabs: General, Skills, Model, Capture & search, Apps and Usage. Changes save automatically and apply immediately.
+Open **Selection + Screenshot** in DSH's sidebar. The page has four tabs: **Selection** and **Screenshot** for each feature, and **Models & language** and **Usage**, which both share. Changes save automatically and apply immediately.
 
 <p>
   <img src="docs/images/en/settings-skills.png" alt="The Skills tab: built-in and custom skills in toolbar order" width="49%">
@@ -94,6 +111,7 @@ Settings are stored in `selection/settings.json` under the DSH data directory.
 ## Privacy
 
 - The selected text stays on your machine until you click a skill that needs a model. Only then is it sent, to the model route you chose in DSH.
+- Captures stay on your machine too: copy, save and pin never touch the network. Only a screenshot AI action sends the selected region (with its annotations), through DSH's attachment store, to the vision model you chose. Text inside the image is treated as material; the model is told never to follow instructions in it.
 - The toolbar process never talks to the network. Model calls are made by the DSH Host on its behalf.
 - Selected text is treated as untrusted input: it is wrapped in `<selection>` tags and the model is told never to follow instructions inside it. Model output is rendered with a renderer that never emits raw HTML, and links open in your browser only after a click.
 - The settings API answers only DSH's signed-in session, through the same check DSH's own routes use.
@@ -107,7 +125,9 @@ Settings are stored in `selection/settings.json` under the DSH data directory.
 - **No toolbar on macOS**: check System Settings → Privacy & Security → Accessibility for DeepSeek Harness. The settings page shows a banner while the permission is missing.
 - **No toolbar in one app**: check the disabled apps list. Some apps expose nothing to accessibility APIs; keep "Fall back to copying" on.
 - **Model errors**: use **Test** on the settings page. "No model" means DSH has no usable model yet; sign in or add an API key in DSH.
-- **Anything else**: look at `~/.dsh/selection/host.log`, then use **Restart the assistant** on the settings page.
+- **The capture shortcut does nothing**: open the Screenshot tab and read the note under the shortcut: pick another combination if another app holds it. On macOS, a black capture or one with only the desktop means the screen-recording permission is missing; follow the notice at the top of the page.
+- **Screenshot AI says no model can read images**: DSH needs a model with image input; use **Test** under Vision model on the Models & language tab.
+- **Anything else**: look at `~/.dsh/selection/host.log`, then use **Restart the assistant** or **Restart the screenshot process** on the settings page.
 
 ## Known limitations
 
@@ -118,6 +138,8 @@ Settings are stored in `selection/settings.json` under the DSH data directory.
 - On macOS the toolbar does not appear while secure input is on (password fields), by design of the OS.
 - The toolbar process is DSH's own Electron executable in Node mode. Electron Framework and the web view library both define an Objective-C class named `NotificationCenterDelegate`, which prints a harmless warning at start.
 - Text-to-speech uses the system voices; quality depends on what is installed.
+- Screenshots on Windows are implemented but have not run on real hardware yet: several displays, mixed scale factors and pin translucency (a layered window) need trying.
+- Selection and screenshots each run in their own background process, so a fault in one never takes the other down; the cost is some extra memory.
 
 ## Development
 

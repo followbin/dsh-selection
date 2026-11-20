@@ -1,0 +1,261 @@
+/* Native-feeling chrome: real vibrancy, hairline edges, layered shadows and optically
+   sized glyphs. Everything that floats uses the same material so the overlay reads as one
+   piece of system UI rather than a web page drawn on top of the screen. */
+:root {
+  --accent: #0a84ff;
+  --accent-ink: #fff;
+
+  --mat: rgba(250, 250, 252, .8);
+  --mat-edge: rgba(0, 0, 0, .18);
+  --mat-top: rgba(255, 255, 255, .8);
+  --ink: #16161a;
+  --ink-2: #6e6e76;
+  --well: rgba(0, 0, 0, .07);
+  --well-hi: rgba(0, 0, 0, .11);
+  --rule: rgba(0, 0, 0, .1);
+
+  --lift:
+    0 0 0 .5px rgba(0, 0, 0, .06),
+    0 1px 2px rgba(0, 0, 0, .09),
+    0 10px 30px rgba(0, 0, 0, .24);
+  --dim: rgba(0, 0, 0, .42);
+  --r-bar: 15px;
+  --r-btn: 9px;
+}
+/* The host tells the page which appearance the system is in, because a borderless
+   web view does not always inherit it; the media query is the fallback. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --mat: rgba(46, 46, 50, .8);
+    --mat-edge: rgba(255, 255, 255, .15);
+    --mat-top: rgba(255, 255, 255, .11);
+    --ink: #f4f4f7;
+    --ink-2: #9a9aa4;
+    --well: rgba(255, 255, 255, .11);
+    --well-hi: rgba(255, 255, 255, .17);
+    --rule: rgba(255, 255, 255, .13);
+    --lift:
+      0 0 0 .5px rgba(0, 0, 0, .5),
+      0 1px 2px rgba(0, 0, 0, .35),
+      0 12px 34px rgba(0, 0, 0, .5);
+  }
+}
+:root[data-theme="dark"] {
+  --mat: rgba(46, 46, 50, .8);
+  --mat-edge: rgba(255, 255, 255, .15);
+  --mat-top: rgba(255, 255, 255, .11);
+  --ink: #f4f4f7;
+  --ink-2: #9a9aa4;
+  --well: rgba(255, 255, 255, .11);
+  --well-hi: rgba(255, 255, 255, .17);
+  --rule: rgba(255, 255, 255, .13);
+  --lift:
+    0 0 0 .5px rgba(0, 0, 0, .5),
+    0 1px 2px rgba(0, 0, 0, .35),
+    0 12px 34px rgba(0, 0, 0, .5);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: transparent; }
+body {
+  font: 13px/1.45 -apple-system, "SF Pro Text", "PingFang SC", "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", system-ui, sans-serif;
+  color: var(--ink); cursor: crosshair; user-select: none; -webkit-user-select: none;
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+}
+body.picked { cursor: default; }
+button { font: inherit; color: inherit; }
+/* Mouse-driven chrome: no keyboard focus ring. */
+button:focus, button:focus-visible { outline: none; }
+
+/* ---------- the floating material ---------- */
+.mat {
+  background: var(--mat);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  backdrop-filter: blur(40px) saturate(180%);
+  border: .5px solid var(--mat-edge);
+  box-shadow: var(--lift), inset 0 .5px 0 var(--mat-top);
+}
+
+/* ---------- dim + region ---------- */
+#dim { position: fixed; inset: 0; background: var(--dim); opacity: 0; transition: opacity 150ms ease-out; }
+body.live #dim { opacity: 1; }
+body.picked #dim, body.picking #dim { display: none; }
+
+#region {
+  position: fixed; display: none; box-shadow: 0 0 0 100vmax var(--dim);
+  outline: 1.5px solid var(--accent);
+}
+body.picking #region, body.picked #region { display: block; }
+#canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+/* No tool: the region itself drags. A tool: it draws. An annotation under the pointer is
+   always picked up, so it shows move regardless of the tool. */
+body.picked.tool-none #canvas { cursor: move; }
+body.picked.tool-draw #canvas { cursor: crosshair; }
+body.picked.tool-text #canvas { cursor: text; }
+body.picked.over-shape #canvas { cursor: move; }
+body.picked.over-handle #canvas { cursor: grab; }
+
+.grip {
+  position: absolute; width: 11px; height: 11px; border-radius: 50%;
+  background: #fff; display: none;
+  box-shadow: 0 0 0 1.5px var(--accent), 0 1px 3px rgba(0, 0, 0, .45);
+}
+body.picked .grip { display: block; }
+.grip[data-at="nw"] { left: -6px; top: -6px; cursor: nwse-resize; }
+.grip[data-at="ne"] { right: -6px; top: -6px; cursor: nesw-resize; }
+.grip[data-at="sw"] { left: -6px; bottom: -6px; cursor: nesw-resize; }
+.grip[data-at="se"] { right: -6px; bottom: -6px; cursor: nwse-resize; }
+.grip[data-at="n"] { left: calc(50% - 5.5px); top: -6px; cursor: ns-resize; }
+.grip[data-at="s"] { left: calc(50% - 5.5px); bottom: -6px; cursor: ns-resize; }
+.grip[data-at="w"] { left: -6px; top: calc(50% - 5.5px); cursor: ew-resize; }
+.grip[data-at="e"] { right: -6px; top: calc(50% - 5.5px); cursor: ew-resize; }
+
+/* ---------- size pill ---------- */
+#size {
+  position: fixed; display: none; align-items: baseline; gap: 6px;
+  padding: 6px 12px; border-radius: 10px;
+  background: var(--mat);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  backdrop-filter: blur(40px) saturate(180%);
+  border: .5px solid var(--mat-edge);
+  box-shadow: var(--lift), inset 0 .5px 0 var(--mat-top);
+  font-variant-numeric: tabular-nums; font-weight: 590; font-size: 13.5px;
+  letter-spacing: .2px; pointer-events: none;
+}
+#size s { text-decoration: none; color: var(--ink-2); font-weight: 400; font-size: 12px; }
+body.picking #size, body.picked #size { display: flex; }
+
+/* ---------- toolbars ---------- */
+#bar, #opts, #airow, #ask {
+  position: fixed; cursor: default;
+  background: var(--mat);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+  backdrop-filter: blur(40px) saturate(180%);
+  border: .5px solid var(--mat-edge);
+  box-shadow: var(--lift), inset 0 .5px 0 var(--mat-top);
+}
+#bar { display: none; align-items: center; gap: 1px; padding: 5px 6px; border-radius: 13px; }
+body.picked #bar { display: flex; }
+#bar .group { display: flex; align-items: center; gap: 1px; }
+#bar .sep, #opts .sep { width: 1px; height: 18px; background: var(--rule); margin: 0 5px; flex: 0 0 auto; }
+
+#bar button, #opts button, #airow button {
+  border: 0; background: transparent; cursor: pointer;
+  display: grid; place-items: center;
+  transition: background 120ms ease, color 120ms ease, transform 90ms ease, box-shadow 120ms ease;
+}
+#bar button { width: 32px; height: 32px; border-radius: 8px; }
+#bar button:hover { background: var(--well); }
+#bar button:active { background: var(--well-hi); }
+#bar button[aria-pressed="true"] {
+  background: var(--accent); color: var(--accent-ink);
+  box-shadow: 0 1px 3px rgba(10, 132, 255, .45), inset 0 .5px 0 rgba(255, 255, 255, .34);
+}
+#bar button[aria-pressed="true"]:hover { background: var(--accent); filter: brightness(1.06); }
+#bar button:disabled { opacity: .28; cursor: default; }
+#bar button:disabled:hover { background: transparent; }
+
+#bar svg, #opts svg, #airow svg {
+  width: 22px; height: 22px; fill: none; stroke: currentColor;
+  stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round;
+}
+#bar .go { color: #28a745; } #bar .no { color: #e0453d; }
+#bar .go:hover { background: rgba(40, 167, 69, .15); }
+#bar .no:hover { background: rgba(224, 69, 61, .15); }
+
+/* ---------- per-tool options ---------- */
+.slider { display: flex; align-items: center; gap: 9px; padding: 0 4px; cursor: default; }
+.slider span { color: var(--ink-2); font-size: 12px; white-space: nowrap; min-width: 26px; }
+.slider output {
+  min-width: 26px; text-align: right; font-variant-numeric: tabular-nums;
+  font-size: 12.5px; font-weight: 600;
+}
+.slider input[type="range"] {
+  -webkit-appearance: none; appearance: none; width: 128px; height: 22px;
+  background: transparent; margin: 0; cursor: pointer;
+}
+.slider input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px; border-radius: 2px;
+  background: linear-gradient(to right, var(--accent) 0, var(--accent) var(--fill, 20%), var(--well-hi) var(--fill, 20%));
+}
+.slider input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none; width: 16px; height: 16px; margin-top: -6px;
+  border-radius: 50%; background: #fff; cursor: grab;
+  box-shadow: 0 0 0 .5px rgba(0, 0, 0, .28), 0 1px 3px rgba(0, 0, 0, .3);
+}
+.slider input[type="range"]:active::-webkit-slider-thumb { cursor: grabbing; }
+
+#opts { display: none; align-items: center; gap: 5px; padding: 7px 11px; border-radius: 13px; }
+body.tool-opts #opts { display: flex; }
+.swatches { display: flex; gap: 7px; align-items: center; }
+.swatches i {
+  width: 19px; height: 19px; border-radius: 50%; cursor: pointer; display: block;
+  box-shadow: inset 0 0 0 .5px rgba(0, 0, 0, .3), 0 1px 2px rgba(0, 0, 0, .18);
+  transition: transform 120ms cubic-bezier(.2, .9, .3, 1.2), box-shadow 120ms ease;
+}
+.swatches i:hover { transform: scale(1.18); }
+.swatches i[aria-pressed="true"] {
+  box-shadow: inset 0 0 0 .5px rgba(0, 0, 0, .3), 0 0 0 2px var(--mat), 0 0 0 4px var(--accent);
+  transform: scale(1.06);
+}
+#opts .toggle[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+#opts .toggle { width: 30px; height: 30px; border-radius: 8px; }
+#opts .toggle svg { width: 20px; height: 20px; }
+#opts .toggle:hover { background: var(--well); }
+
+/* ---------- AI row (always there once a region is picked) ---------- */
+#airow { display: none; align-items: center; gap: 2px; padding: 5px; border-radius: 12px; }
+body.picked #airow { display: flex; }
+body.picked #airow:empty { display: none; }
+#airow span { max-width: 9em; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+#airow button {
+  display: flex; align-items: center; gap: 7px; height: 32px; padding: 0 11px 0 9px;
+  border-radius: 8px; font-size: 13px; font-weight: 500; letter-spacing: .1px;
+}
+#airow button:hover { background: var(--well); }
+#airow button:active { background: var(--well-hi); }
+#airow svg { width: 19px; height: 19px; flex: 0 0 auto; opacity: .85; }
+
+/* ---------- ask box ---------- */
+#ask { display: none; width: 440px; padding: 11px; border-radius: 14px; }
+body.asking #ask { display: block; }
+#ask textarea {
+  width: 100%; resize: none; border: 0; border-radius: 9px; padding: 9px 11px;
+  background: var(--well); color: var(--ink); font: inherit; outline: none; line-height: 1.5;
+  box-shadow: inset 0 0 0 .5px var(--mat-edge);
+}
+#ask textarea:focus { box-shadow: inset 0 0 0 1.5px var(--accent); }
+#ask textarea::placeholder { color: var(--ink-2); }
+#ask .row { display: flex; gap: 8px; margin-top: 9px; align-items: center; }
+#ask .tip { color: var(--ink-2); font-size: 11.5px; margin-right: auto; }
+#ask .row button {
+  height: 29px; padding: 0 15px; border: 0; border-radius: 8px;
+  background: var(--well); cursor: pointer; font-weight: 500;
+}
+#ask .row button.primary {
+  background: var(--accent); color: var(--accent-ink);
+  box-shadow: 0 1px 3px rgba(10, 132, 255, .4), inset 0 .5px 0 rgba(255, 255, 255, .3);
+}
+#ask .row button:hover { filter: brightness(1.08); }
+#ask .row button:active { transform: scale(.97); }
+
+/* ---------- hint ---------- */
+#hint {
+  position: fixed; left: 50%; top: 50%; transform: translate(-50%, -50%);
+  padding: 11px 20px; border-radius: 12px;
+  background: rgba(20, 20, 22, .74);
+  -webkit-backdrop-filter: blur(30px) saturate(170%);
+  backdrop-filter: blur(30px) saturate(170%);
+  border: .5px solid rgba(255, 255, 255, .12);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .4), inset 0 .5px 0 rgba(255, 255, 255, .14);
+  color: #fff; font-size: 13.5px; letter-spacing: .2px; pointer-events: none; opacity: 0;
+  transition: opacity 200ms ease-out 70ms;
+}
+body.live:not(.picking):not(.picked) #hint { opacity: 1; }
+
+/* The frozen frame and the magnifier, where the page draws them (no native layers). */
+#frozen { position: fixed; inset: 0; width: 100vw; height: 100vh; z-index: 0; user-select: none;
+  -webkit-user-drag: none; pointer-events: none; }
+#frozen[hidden], #loupe[hidden] { display: none; }
+#loupe { position: fixed; z-index: 60; pointer-events: none; border-radius: 6px;
+  box-shadow: 0 0 0 .5px rgba(0, 0, 0, .45), 0 6px 18px rgba(0, 0, 0, .35); }

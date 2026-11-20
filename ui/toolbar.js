@@ -28,8 +28,9 @@
       },
     },
   }
-  const locale = (navigator.language || 'en').toLowerCase().startsWith('zh') ? 'zh' : 'en'
-  const t = STRINGS[locale]
+  // DSH's interface language arrives with the configuration; the system language stands until then.
+  let locale = (navigator.language || 'en').toLowerCase().startsWith('zh') ? 'zh' : 'en'
+  let t = STRINGS[locale]
   const icons = window.DSH_ICONS || {}
   const body = document.body
   const $ = (selector) => document.querySelector(selector)
@@ -60,13 +61,16 @@
     panelBody: $('.panel-body'),
   }
 
-  // Static labels and icons.
-  document.querySelectorAll('[data-i18n]').forEach((node) => { node.textContent = t[node.dataset.i18n] })
-  document.querySelectorAll('[data-i18n-label]').forEach((node) => {
-    node.setAttribute('aria-label', t[node.dataset.i18nLabel])
-    node.title = t[node.dataset.i18nLabel]
-  })
-  document.querySelectorAll('[data-i18n-placeholder]').forEach((node) => { node.placeholder = t[node.dataset.i18nPlaceholder] })
+  // Static labels, again whenever the language changes.
+  function applyStaticStrings() {
+    document.querySelectorAll('[data-i18n]').forEach((node) => { node.textContent = t[node.dataset.i18n] })
+    document.querySelectorAll('[data-i18n-label]').forEach((node) => {
+      node.setAttribute('aria-label', t[node.dataset.i18nLabel])
+      node.title = t[node.dataset.i18nLabel]
+    })
+    document.querySelectorAll('[data-i18n-placeholder]').forEach((node) => { node.placeholder = t[node.dataset.i18nPlaceholder] })
+  }
+  applyStaticStrings()
   els.more.innerHTML = icon('more')
   els.mini.innerHTML = window.DSH_BRAND || icon('sparkles')
   $('[data-menu-action="disable-app"]').insertAdjacentHTML('afterbegin', icon('ban'))
@@ -186,6 +190,11 @@
 
   window.bar = {
     configure(next) {
+      if ((next.locale === 'zh' || next.locale === 'en') && next.locale !== locale) {
+        locale = next.locale
+        t = STRINGS[locale]
+        applyStaticStrings()
+      }
       skills = next
       const nextStyle = next.style === 'mini' ? 'mini' : 'full'
       if (nextStyle !== style) {

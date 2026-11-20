@@ -16,8 +16,8 @@ window.__ModuleLoader__.load({
     const SAVED_NOTICE_MS = 2000
 
     const zh = {
-      'title': '划词助手',
-      'subtitle': '在任意应用里选中文字，就能用 DSH 翻译、总结、解释、追问或朗读。',
+      'title': '划词+截图',
+      'subtitle': '在任意应用里选中文字，或按快捷键截取屏幕区域，用 DSH 翻译、总结、解释、提取文字或追问。',
       'status.running': '运行中',
       'status.starting': '启动中',
       'status.restarting': '正在重启',
@@ -69,13 +69,14 @@ window.__ModuleLoader__.load({
       'toolbar.style.mini': '迷你',
       'toolbar.style.hint': '迷你模式只显示一个图标，鼠标停在上面会展开全部技能。在工具栏的菜单里也能切换。',
       'language.title': '语言',
+      'language.hint': '划词和截图共用这些语言设置。',
       'language.native': '我的母语',
       'language.translate': '翻译成',
       'language.translate.auto': '自动（母语和英文互译）',
       'language.answer': '总结、解释和回答使用',
       'language.answer.native': '我的母语',
       'language.answer.source': '和原文相同的语言',
-      'model.title': '模型',
+      'model.title': '划词模型',
       'model.route': '使用的模型',
       'model.auto': '自动（优先 DeepSeek Flash）',
       'model.current': '当前使用：{route}',
@@ -104,12 +105,11 @@ window.__ModuleLoader__.load({
       'footer.reset': '恢复默认设置',
       'footer.resetConfirm': '恢复全部默认设置？自定义技能会被删除。',
       'footer.restart': '重启划词进程',
+      'footer.restartShot': '重启截图进程',
       'footer.data': '设置保存在 DSH 数据目录下的 selection/settings.json',
-      'tab.general': '常规',
-      'tab.skills': '技能',
-      'tab.model': '模型',
-      'tab.capture': '取词与搜索',
-      'tab.apps': '应用',
+      'tab.selection': '划词',
+      'tab.shot': '截图',
+      'tab.model': '模型与语言',
       'tab.usage': '用量',
       'failure.NO_LLM': 'DSH 的模型服务还没就绪',
       'failure.NO_MODEL': '还没有可用的模型',
@@ -140,11 +140,74 @@ window.__ModuleLoader__.load({
       'usage.privacy': '用量只记数字，不记文字，保留最近 90 天。',
       'usage.reset': '清空用量',
       'usage.resetConfirm': '清空所有用量记录？',
+      'shot.title': '截图',
+      'shot.enabled': '启用截图',
+      'shot.enabled.hint': '关掉后快捷键不再截图，截图进程也会停下；设置保留。',
+      'shot.state': '截图进程',
+      'shot.start': '开始截图',
+      'shot.noPermission': '还没有录屏权限，按页面上方的提示授权。',
+      'shot.hotkey': '截图快捷键',
+      'shot.hotkey.hint': '在任意应用里按下，所有显示器同时进入截图。',
+      'shot.hotkey.record': '按下新的快捷键…',
+      'shot.hotkey.none': '未设置',
+      'shot.hotkey.reset': '重置',
+      'shot.hotkey.resetHint': '恢复为 {shortcut}',
+      'shot.hotkey.recordHint': '按下组合键，Esc 取消。至少包含 ⌘ ⌃ ⌥ ⇧ 中的一个。',
+      'shot.hotkey.recordHintWin': '按下组合键，Esc 取消。至少包含 Ctrl、Alt、Shift、Win 中的一个。',
+      'shot.hotkey.registered': '已向系统注册：按下时只有截图响应，其它应用收不到这组键。',
+      'shot.hotkey.taken': '这组键已被其它软件独占，截图没能接管。',
+      'shot.hotkey.takenListening': '现在仍会触发截图，但那个软件也会响应，建议换一组。',
+      'shot.hotkey.takenDead': '按下不会截图，请换一组。',
+      'shot.hotkey.system': '和系统快捷键「{name}」是同一组键，按下时系统也会响应。',
+      'shot.hotkey.failed': '全局快捷键没有生效，可点「重启截图进程」再试。',
+      'shot.hotkey.conflict': '和「{name}」是同一组键：按下时两边都会响应。',
+      'shot.hotkey.conflictApp': '只用 {modifier} 加一个键的组合常是应用自己的快捷键；设成截图后，应用里的这组键会失效。',
+      'shot.hotkey.conflictTyping': '只用 ⌥（可加 ⇧）的组合会在输入框里打出字符。',
+      'shot.save': '保存位置',
+      'shot.save.hint': '截图工具栏里的「保存」会把 PNG 存到这里。',
+      'shot.save.choose': '选择…',
+      'shot.save.open': '在访达中打开',
+      'shot.save.openWin': '在资源管理器中打开',
+      'shot.actions.title': '截图 AI 功能',
+      'shot.actions.hint': '框选后，启用的功能按这里的顺序出现在截图工具栏第二行；回答出现在截图旁的面板里，可以继续追问。拖动或用 ↑ ↓ 调整顺序。',
+      'shot.actions.add': '新建功能',
+      'shot.actions.limit': '最多 {count} 个自定义功能',
+      'shot.actions.deleteConfirm': '删除功能「{name}」？',
+      'shot.action.ocr': '提取文字',
+      'shot.action.ocr.hint': '原样转写图中所有文字；表格按行输出、单元格用 Tab 分隔，可直接粘贴到表格软件。',
+      'shot.action.translate': '翻译',
+      'shot.action.translate.hint': '按「模型与语言」里的设置翻译图中文字，保留原有结构；代码、路径、网址不翻译。',
+      'shot.action.explain': '解释',
+      'shot.action.explain.hint': '一句话说明截图内容，再列出要点；报错给出原因和修复办法，图表给出结论。',
+      'shot.action.ask': '问一问',
+      'shot.action.ask.hint': '输入你自己的问题，模型带着这张图回答。',
+      'shot.editor.titleNew': '新建截图 AI 功能',
+      'shot.editor.titleEdit': '编辑截图 AI 功能',
+      'shot.editor.namePlaceholder': '例如：转成表格',
+      'shot.editor.promptPlaceholder': '例如：把图里的表格整理成 Markdown 表格，保留所有数字和单位。',
+      'shot.editor.promptHint': '截图会和指令一起发给看图模型，默认用「模型与语言」里设置的语言回答；可以继续追问。',
+      'shot.editor.image': '选一张图片，或按 {paste} 粘贴截图；不选就用内置的测试图。',
+      'shot.editor.chooseImage': '选择图片',
+      'shot.editor.clearImage': '移除',
+      'shot.permission.title': '截图需要录屏权限',
+      'shot.permission.body': '在「系统设置 → 隐私与安全性 → 录屏与系统录音」里打开 DeepSeek Harness，截图才能读到屏幕内容。授权后会自动生效，不用重启。',
+      'shot.model.title': '看图模型',
+      'shot.model.hint': '截图的 AI 功能用这里的模型，只列出支持图片输入的模型；追问会带上同一个面板里之前的问答。',
+      'shot.model.auto': '自动（第一个能看图的模型）',
+      'shot.model.none': 'DSH 里还没有能看图的模型。请在 DSH 设置里登录 DeepSeek 或添加支持图片输入的模型。',
+      'shot.model.testOk': '{route} 可用，用时 {ms} 毫秒，读出：{output}',
+      'usage.shot': '截图 · {name}',
+      'usage.shot.followUp': '追问',
+      'usage.shot.modelTest': '看图模型测试',
+      'usage.shot.actionTest': '功能试运行',
+      'usage.shot.removed': '已删除的功能',
+      'failure.NO_VISION_MODEL': '还没有能看图的模型',
+      'failure.NO_ATTACHMENTS': 'DSH 的附件存储不可用',
       'error.render': '设置页渲染失败：',
     }
     const en = {
-      'title': 'Selection assistant',
-      'subtitle': 'Select text in any app to translate, summarize, explain, ask about or read it with DSH.',
+      'title': 'Selection + Screenshot',
+      'subtitle': 'Select text in any app, or capture a region of the screen with a shortcut, and have DSH translate, summarize, explain, extract or answer about it.',
       'status.running': 'Running',
       'status.starting': 'Starting',
       'status.restarting': 'Restarting',
@@ -196,13 +259,14 @@ window.__ModuleLoader__.load({
       'toolbar.style.mini': 'Mini',
       'toolbar.style.hint': 'The mini toolbar is a single icon; rest the pointer on it to see every skill. You can also switch from the toolbar’s menu.',
       'language.title': 'Language',
+      'language.hint': 'Selections and screenshots share these language settings.',
       'language.native': 'My language',
       'language.translate': 'Translate into',
       'language.translate.auto': 'Auto (between my language and English)',
       'language.answer': 'Summaries, explanations and answers in',
       'language.answer.native': 'My language',
       'language.answer.source': 'The language of the selected text',
-      'model.title': 'Model',
+      'model.title': 'Text model (selection)',
       'model.route': 'Model',
       'model.auto': 'Auto (prefers DeepSeek Flash)',
       'model.current': 'Currently using {route}',
@@ -231,12 +295,11 @@ window.__ModuleLoader__.load({
       'footer.reset': 'Restore defaults',
       'footer.resetConfirm': 'Restore all default settings? Custom skills will be deleted.',
       'footer.restart': 'Restart the assistant',
+      'footer.restartShot': 'Restart the screenshot process',
       'footer.data': 'Settings are stored in selection/settings.json under the DSH data directory',
-      'tab.general': 'General',
-      'tab.skills': 'Skills',
-      'tab.model': 'Model',
-      'tab.capture': 'Capture & search',
-      'tab.apps': 'Apps',
+      'tab.selection': 'Selection',
+      'tab.shot': 'Screenshot',
+      'tab.model': 'Models & language',
       'tab.usage': 'Usage',
       'failure.NO_LLM': 'DSH’s model service is not ready yet',
       'failure.NO_MODEL': 'No model is available',
@@ -267,6 +330,69 @@ window.__ModuleLoader__.load({
       'usage.privacy': 'Usage keeps numbers only, never text, for the last 90 days.',
       'usage.reset': 'Clear usage',
       'usage.resetConfirm': 'Clear all usage records?',
+      'shot.title': 'Screenshot',
+      'shot.enabled': 'Screenshots',
+      'shot.enabled.hint': 'Turning this off stops the shortcut and the screenshot process; settings are kept.',
+      'shot.state': 'Screenshot process',
+      'shot.start': 'Take a screenshot',
+      'shot.noPermission': 'Screen recording is not allowed yet; see the notice above.',
+      'shot.hotkey': 'Capture shortcut',
+      'shot.hotkey.hint': 'Press it in any app to start a capture on every display.',
+      'shot.hotkey.record': 'Press the new shortcut…',
+      'shot.hotkey.none': 'None',
+      'shot.hotkey.reset': 'Reset',
+      'shot.hotkey.resetHint': 'Back to {shortcut}',
+      'shot.hotkey.recordHint': 'Press a key combination, or Esc to cancel. Include at least one of ⌘ ⌃ ⌥ ⇧.',
+      'shot.hotkey.recordHintWin': 'Press a key combination, or Esc to cancel. Include at least one of Ctrl, Alt, Shift, Win.',
+      'shot.hotkey.registered': 'Registered with the system: only the capture responds; other apps do not receive these keys.',
+      'shot.hotkey.taken': 'Another app holds these keys exclusively, so the capture could not take them over.',
+      'shot.hotkey.takenListening': 'It still starts a capture, but that app responds too; pick another combination.',
+      'shot.hotkey.takenDead': 'Pressing it does not start a capture; pick another combination.',
+      'shot.hotkey.system': 'Same keys as the system shortcut “{name}”; the system responds too.',
+      'shot.hotkey.failed': 'The global shortcut is not active; try Restart the screenshot process.',
+      'shot.hotkey.conflict': 'Same keys as {name}: both will respond when you press them.',
+      'shot.hotkey.conflictApp': 'Combinations of only {modifier} and one key are usually the app’s own shortcuts; once used for capture, they stop working in the app.',
+      'shot.hotkey.conflictTyping': 'Combinations of only ⌥ (with or without ⇧) type a character in text fields.',
+      'shot.save': 'Save to',
+      'shot.save.hint': 'Save on the capture toolbar writes a PNG here.',
+      'shot.save.choose': 'Choose…',
+      'shot.save.open': 'Show in Finder',
+      'shot.save.openWin': 'Show in Explorer',
+      'shot.actions.title': 'Screenshot AI actions',
+      'shot.actions.hint': 'After you select a region, the enabled actions appear in this order on the second row of the capture toolbar; answers open in a panel beside the capture, where you can keep asking. Drag, or use ↑ ↓, to reorder.',
+      'shot.actions.add': 'New action',
+      'shot.actions.limit': 'At most {count} custom actions',
+      'shot.actions.deleteConfirm': 'Delete the action “{name}”?',
+      'shot.action.ocr': 'Extract text',
+      'shot.action.ocr.hint': 'Transcribes every piece of text as written; tables come out one row per line with tab-separated cells, ready to paste into a spreadsheet.',
+      'shot.action.translate': 'Translate',
+      'shot.action.translate.hint': 'Translates the text with the settings under Models & language, keeping its structure; code, paths and URLs stay as they are.',
+      'shot.action.explain': 'Explain',
+      'shot.action.explain.hint': 'One sentence on what the capture shows, then the key points; for an error, its cause and fix; for a chart, the takeaway.',
+      'shot.action.ask': 'Ask',
+      'shot.action.ask.hint': 'Type your own question; the model answers with the image in view.',
+      'shot.editor.titleNew': 'New screenshot action',
+      'shot.editor.titleEdit': 'Edit screenshot action',
+      'shot.editor.namePlaceholder': 'e.g. Make a table',
+      'shot.editor.promptPlaceholder': 'e.g. Turn the table in the image into a Markdown table, keeping every number and unit.',
+      'shot.editor.promptHint': 'The capture goes to the vision model with this instruction; it answers in the language under Models & language unless the instruction names one, and you can keep asking.',
+      'shot.editor.image': 'Choose an image, or press {paste} to paste one; without one the built-in test card is used.',
+      'shot.editor.chooseImage': 'Choose image',
+      'shot.editor.clearImage': 'Remove',
+      'shot.permission.title': 'Screen recording permission needed for screenshots',
+      'shot.permission.body': 'Turn on DeepSeek Harness in System Settings → Privacy & Security → Screen & System Audio Recording so captures can read the screen. It starts working as soon as you allow it, without a restart.',
+      'shot.model.title': 'Vision model (screenshots)',
+      'shot.model.hint': 'Screenshot actions use this model; only models with image input are listed. Follow-ups carry the earlier turns of the same panel.',
+      'shot.model.auto': 'Auto (first image-capable model)',
+      'shot.model.none': 'No model in DSH can read images yet. Sign in to DeepSeek in DSH settings or add a model with image input.',
+      'shot.model.testOk': '{route} works, {ms} ms, read: {output}',
+      'usage.shot': 'Screenshot · {name}',
+      'usage.shot.followUp': 'Follow-ups',
+      'usage.shot.modelTest': 'Vision model test',
+      'usage.shot.actionTest': 'Action trial run',
+      'usage.shot.removed': 'Deleted action',
+      'failure.NO_VISION_MODEL': 'No model can read images yet',
+      'failure.NO_ATTACHMENTS': 'DSH’s attachment store is not available',
       'error.render': 'The settings page failed to render: ',
     }
     const fill = (text, values) => text.replace(/\{(\w+)\}/g, (match, key) => (key in values ? String(values[key]) : match))
@@ -366,6 +492,16 @@ window.__ModuleLoader__.load({
       .dss-recent { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 16px 14px; font-size: 12px; color: var(--dsw-alias-label-secondary); }
       .dss-footer { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 28px; }
       .dss-footer .dss-hint { flex-basis: 100%; }
+      .dss-keys { display: inline-flex; align-items: center; justify-content: center; min-width: 96px; height: 30px; padding: 0 12px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 8px; background: var(--dsw-alias-bg-base); color: var(--dsw-alias-label-primary); font: inherit; font-size: 14px; letter-spacing: 1px; cursor: pointer; font-variant-numeric: tabular-nums; }
+      .dss-keys[data-recording="true"] { border-color: var(--dsw-alias-label-primary); letter-spacing: 0; font-size: 12.5px; color: var(--dsw-alias-label-secondary); }
+      .dss-keys[data-empty="true"] { letter-spacing: 0; font-size: 12.5px; color: var(--dsw-alias-label-secondary); }
+      .dss-path { max-width: 280px; font-size: 12.5px; color: var(--dsw-alias-label-secondary); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+      .dss-warn { color: var(--dsw-alias-state-warn-primary, #b26a00); }
+      .dss-skill-main { flex: 1; min-width: 0; }
+      .dss-skill-hint { margin-top: 1px; font-size: 12px; line-height: 17px; color: var(--dsw-alias-label-secondary); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+      .dss-drop { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px dashed var(--dsw-alias-border-l2); border-radius: 10px; font-size: 12.5px; color: var(--dsw-alias-label-secondary); }
+      .dss-drop img { width: 72px; height: 48px; object-fit: cover; border-radius: 6px; box-shadow: 0 0 0 1px var(--dsw-alias-border-l1); }
+      .dss-drop .dss-spacer { flex: 1; }
     `
 
     // ---------- Host connection ----------
@@ -640,9 +776,364 @@ window.__ModuleLoader__.load({
           h('button', { type: 'button', className: 'dss-button', onClick: onCancel }, t('editor.cancel'))))
     }
 
+    // ---------- Screenshots ----------
+
+    const MODIFIER_ORDER = ['Control', 'Alt', 'Shift', 'Meta']
+    const MAC_GLYPHS = { Control: '⌃', Alt: '⌥', Shift: '⇧', Meta: '⌘' }
+    const KEY_NAMES = { SPACE: 'Space', ESCAPE: 'Esc', ENTER: '↩', TAB: '⇥', BACKSPACE: '⌫', LEFT: '←', RIGHT: '→', UP: '↑', DOWN: '↓' }
+
+    /** "Alt+D" as the platform writes it: ⌥D on macOS, Alt+D on Windows. */
+    function shortcutLabel(spec, mac) {
+      const parts = String(spec || '').split('+').filter(Boolean)
+      if (parts.length === 0) return ''
+      const key = parts.pop().toUpperCase()
+      const modifiers = MODIFIER_ORDER.filter((name) => parts.includes(name))
+      const keyName = KEY_NAMES[key] ?? key
+      if (mac) return modifiers.map((name) => MAC_GLYPHS[name]).join('') + keyName
+      return [...modifiers.map((name) => ({ Control: 'Ctrl', Meta: 'Win' })[name] ?? name), keyName].join('+')
+    }
+
+    /**
+     * The physical key of a keydown, in the capture worker's key table, or null. `code` names
+     * the physical key (⌥D types "∂" on a Mac); `key` is the fallback for events without one.
+     */
+    function keyOf(code, key) {
+      if (!code && /^[a-z0-9]$/i.test(key)) return key.toUpperCase()
+      if (/^Key[A-Z]$/.test(code)) return code.slice(3)
+      if (/^Digit\d$/.test(code)) return code.slice(5)
+      if (/^F([1-9]|1[0-2])$/.test(code)) return code
+      return { Space: 'Space', ArrowLeft: 'Left', ArrowRight: 'Right', ArrowUp: 'Up', ArrowDown: 'Down', Enter: 'Enter', Tab: 'Tab' }[code] ?? null
+    }
+
+    /**
+     * Global shortcuts other software is known to own (macOS system shortcuts are checked live
+     * by the Host instead). A chord registered with the system reaches only the capture, but
+     * the other program then loses it.
+     */
+    const KNOWN_SHORTCUTS = {
+      win32: {
+        'Shift+Meta+S': { zh: 'Windows 截图工具', en: 'Windows Snipping Tool' },
+        'Alt+A': { zh: '微信截图', en: 'WeChat screenshot' },
+        'Control+Alt+A': { zh: 'QQ 截图', en: 'QQ screenshot' },
+        'Control+Shift+A': { zh: '钉钉截图', en: 'DingTalk screenshot' },
+        'Control+Alt+X': { zh: 'WPS 截图', en: 'WPS screenshot' },
+        'Control+1': { zh: 'PixPin 截图', en: 'PixPin screenshot' },
+        'Control+Space': { zh: '切换输入法', en: 'input method switching' },
+        'Alt+Tab': { zh: '切换窗口', en: 'window switching' },
+        'Alt+F4': { zh: '关闭窗口', en: 'close window' },
+      },
+    }
+
+    /** Why a shortcut may collide with other software here, or null. */
+    function shortcutConflict(t, spec, platform, locale, registered) {
+      if (!spec) return null
+      const modifiers = new Set(spec.split('+').slice(0, -1))
+      const known = KNOWN_SHORTCUTS[platform]?.[spec]
+      if (known) return fill(t('shot.hotkey.conflict'), { name: known[locale] ?? known.en })
+      const only = (...names) => modifiers.size > 0 && [...modifiers].every((name) => names.includes(name))
+      // A registered chord never reaches the text field, so it types nothing.
+      if (!registered && platform === 'darwin' && only('Alt', 'Shift') && modifiers.has('Alt')) return t('shot.hotkey.conflictTyping')
+      if (platform === 'darwin' && only('Meta', 'Shift') && modifiers.has('Meta')) return fill(t('shot.hotkey.conflictApp'), { modifier: '⌘' })
+      if (platform !== 'darwin' && only('Control', 'Shift') && modifiers.has('Control')) return fill(t('shot.hotkey.conflictApp'), { modifier: 'Ctrl' })
+      return null
+    }
+
+    function ShortcutRow({ t, value, fallback, mac, platform, live, hint, onChange }) {
+      const [recording, setRecording] = useState(false)
+      const button = useRef(null)
+      const onKeyDown = (event) => {
+        if (!recording) return
+        event.preventDefault()
+        event.stopPropagation()
+        if (event.key === 'Escape') { setRecording(false); return }
+        const key = keyOf(event.code, event.key)
+        if (!key) return
+        const modifiers = MODIFIER_ORDER.filter((name) => ({ Control: event.ctrlKey, Alt: event.altKey, Shift: event.shiftKey, Meta: event.metaKey })[name])
+        if (modifiers.length === 0 && !/^F\d+$/.test(key)) return
+        setRecording(false)
+        onChange([...modifiers, key].join('+'))
+      }
+      const locale = t('title') === zh.title ? 'zh' : 'en'
+      // The worker's report applies once it is about the shortcut shown here.
+      const current = live && live.spec === value ? live : null
+      const notes = []
+      if (current && !current.registered && !current.listening) notes.push(t(current.reason === 'taken' ? 'shot.hotkey.taken' : 'shot.hotkey.failed'))
+      else if (current?.reason === 'taken') notes.push(t('shot.hotkey.taken') + t(current.listening ? 'shot.hotkey.takenListening' : 'shot.hotkey.takenDead'))
+      if (current?.system) notes.push(fill(t('shot.hotkey.system'), { name: current.system[locale] ?? current.system.en }))
+      const conflict = shortcutConflict(t, value, platform, locale, Boolean(current?.registered))
+      if (conflict) notes.push(conflict)
+      const first = notes.length === 0 && current?.registered ? h('span', null, hint, h('br'), t('shot.hotkey.registered')) : hint
+      const shown = recording ? t(mac ? 'shot.hotkey.recordHint' : 'shot.hotkey.recordHintWin')
+        : h(React.Fragment, null, first, ...notes.map((note, index) => h(React.Fragment, { key: index }, h('br'), h('span', { className: 'dss-warn' }, note))))
+      const label = recording ? t('shot.hotkey.record') : (shortcutLabel(value, mac) || t('shot.hotkey.none'))
+      return h(Row, { label: t('shot.hotkey'), hint: shown },
+        h('button', {
+          ref: button, type: 'button', className: 'dss-keys', 'data-recording': String(recording), 'data-empty': String(!value && !recording),
+          'aria-label': t('shot.hotkey'),
+          onClick: () => { setRecording(true); button.current?.focus() },
+          onBlur: () => setRecording(false),
+          onKeyDown,
+        }, label),
+        value !== fallback
+          ? h('button', { type: 'button', className: 'dss-button quiet', title: fill(t('shot.hotkey.resetHint'), { shortcut: shortcutLabel(fallback, mac) }), onClick: () => onChange(fallback) }, t('shot.hotkey.reset'))
+          : null)
+    }
+
+    /** What the list and the usage table call a screenshot action. */
+    function shotActionName(t, settings, id) {
+      const custom = settings.capture.actions.find((entry) => entry.custom && entry.id === id)
+      if (custom) return custom.name
+      if (['ocr', 'translate', 'explain', 'ask'].includes(id)) return t(`shot.action.${id}`)
+      return ({ followUp: t('usage.shot.followUp'), modelTest: t('usage.shot.modelTest'), actionTest: t('usage.shot.actionTest') })[id] ?? t('usage.shot.removed')
+    }
+
+    function ShotActionList({ t, settings, catalog, onChange, onEdit }) {
+      const [drag, setDrag] = useState(null)
+      const actions = settings.capture.actions
+      const icons = catalog.capture.icons
+      const move = (from, to) => {
+        if (from === to || to < 0 || to >= actions.length) return
+        const next = [...actions]
+        const [item] = next.splice(from, 1)
+        next.splice(to, 0, item)
+        onChange(next)
+      }
+      return h('div', { className: 'dss-card', style: { overflow: 'hidden' } }, actions.map((entry, index) => h('div', {
+        key: entry.id,
+        className: 'dss-skill',
+        'data-enabled': String(entry.enabled),
+        'data-dragging': String(Boolean(drag && drag.from === index)),
+        'data-drop': drag && drag.over === index && drag.from !== index ? (drag.from < index ? 'after' : 'before') : undefined,
+        draggable: true,
+        onDragStart: (event) => {
+          event.dataTransfer.effectAllowed = 'move'
+          event.dataTransfer.setData('text/plain', entry.id)
+          setDrag({ from: index, over: index })
+        },
+        onDragOver: (event) => {
+          event.preventDefault()
+          if (drag && drag.over !== index) setDrag({ ...drag, over: index })
+        },
+        onDrop: (event) => {
+          event.preventDefault()
+          if (drag) move(drag.from, index)
+          setDrag(null)
+        },
+        onDragEnd: () => setDrag(null),
+      },
+      h('button', {
+        type: 'button', className: 'dss-icon-button dss-grip', title: t('skills.move'), 'aria-label': t('skills.move'),
+        onKeyDown: (event) => {
+          if (event.key === 'ArrowUp') { event.preventDefault(); move(index, index - 1) }
+          if (event.key === 'ArrowDown') { event.preventDefault(); move(index, index + 1) }
+        },
+      }, h(Svg, { markup: catalog.icons.grip })),
+      h('span', { className: 'dss-skill-icon' }, h(Svg, { markup: icons[entry.custom ? entry.icon : entry.id] })),
+      h('div', { className: 'dss-skill-main' },
+        h('div', { className: 'dss-skill-name' }, shotActionName(t, settings, entry.id), entry.custom ? h('span', { className: 'dss-tag' }, t('skills.custom')) : null),
+        h('div', { className: 'dss-skill-hint' }, entry.custom ? entry.prompt : t(`shot.action.${entry.id}.hint`))),
+      entry.custom ? h('button', { type: 'button', className: 'dss-icon-button', title: t('skills.edit'), 'aria-label': t('skills.edit'), onClick: () => onEdit(entry) }, h(Svg, { markup: catalog.icons.edit })) : null,
+      entry.custom ? h('button', {
+        type: 'button', className: 'dss-icon-button', title: t('skills.delete'), 'aria-label': t('skills.delete'),
+        onClick: () => {
+          if (window.confirm(fill(t('shot.actions.deleteConfirm'), { name: entry.name }))) onChange(actions.filter((item) => item.id !== entry.id))
+        },
+      }, h(Svg, { markup: catalog.icons.trash })) : null,
+      h(Switch, {
+        checked: entry.enabled, label: shotActionName(t, settings, entry.id),
+        onChange: (enabled) => onChange(actions.map((item) => (item.id === entry.id ? { ...item, enabled } : item))),
+      }))))
+    }
+
+    /** An image file or a pasted image as a data URL. */
+    function readImage(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader()
+        reader.onload = () => resolve(String(reader.result))
+        reader.onerror = () => reject(reader.error)
+        reader.readAsDataURL(file)
+      })
+    }
+
+    function ShotActionEditor({ t, catalog, limits, mac, initial, onSave, onCancel, prepare }) {
+      const icons = catalog.capture.icons
+      const [name, setName] = useState(initial ? initial.name : '')
+      const [icon, setIcon] = useState(initial ? initial.icon : catalog.capture.customIcons[0])
+      const [prompt, setPrompt] = useState(initial ? initial.prompt : '')
+      const [image, setImage] = useState(null)
+      const [trial, setTrial] = useState(null)
+      const [running, setRunning] = useState(false)
+      const fileInput = useRef(null)
+      const valid = name.trim() && prompt.trim()
+      const take = async (file) => {
+        if (!file || !/^image\/(png|jpeg|webp)$/.test(file.type)) return
+        setImage(await readImage(file))
+      }
+      const onPaste = (event) => {
+        const item = [...(event.clipboardData?.items ?? [])].find((entry) => entry.kind === 'file' && entry.type.startsWith('image/'))
+        if (!item) return
+        event.preventDefault()
+        void take(item.getAsFile())
+      }
+      const run = async () => {
+        setRunning(true)
+        setTrial(null)
+        try {
+          await prepare?.()
+          const body = { prompt, ...(image ? { image: image.slice(image.indexOf(',') + 1) } : {}) }
+          setTrial(await request('/capture/actions/test', { method: 'POST', body: JSON.stringify(body) }))
+        } catch (error) {
+          setTrial({ ok: false, error: { code: 'MODEL_FAILED', detail: error.message } })
+        } finally {
+          setRunning(false)
+        }
+      }
+      return h('div', { className: 'dss-editor', onPaste },
+        h('h3', null, initial ? t('shot.editor.titleEdit') : t('shot.editor.titleNew')),
+        h('div', { className: 'dss-field' },
+          h('label', { className: 'dss-field-label' }, t('editor.name')),
+          h('input', { className: 'dss-input', value: name, maxLength: limits.customName, placeholder: t('shot.editor.namePlaceholder'), onChange: (event) => setName(event.target.value) })),
+        h('div', { className: 'dss-field' },
+          h('span', { className: 'dss-field-label' }, t('editor.icon')),
+          h('div', { className: 'dss-icons' }, catalog.capture.customIcons.map((key) => h('button', {
+            key, type: 'button', className: 'dss-icon-choice', 'aria-pressed': String(icon === key), 'aria-label': key, onClick: () => setIcon(key),
+          }, h(Svg, { markup: icons[key] }))))),
+        h('div', { className: 'dss-field' },
+          h('label', { className: 'dss-field-label' }, t('editor.prompt')),
+          h('textarea', { className: 'dss-textarea', value: prompt, maxLength: limits.capturePrompt, placeholder: t('shot.editor.promptPlaceholder'), onChange: (event) => setPrompt(event.target.value) }),
+          h('div', { className: 'dss-hint' }, t('shot.editor.promptHint'))),
+        h('div', { className: 'dss-field' },
+          h('span', { className: 'dss-field-label' }, t('editor.try')),
+          h('div', { className: 'dss-drop' },
+            image ? h('img', { src: image, alt: '' }) : null,
+            h('span', null, fill(t('shot.editor.image'), { paste: mac ? '⌘V' : 'Ctrl+V' })),
+            h('span', { className: 'dss-spacer' }),
+            image ? h('button', { type: 'button', className: 'dss-button quiet', onClick: () => setImage(null) }, t('shot.editor.clearImage')) : null,
+            h('button', { type: 'button', className: 'dss-button', onClick: () => fileInput.current?.click() }, t('shot.editor.chooseImage')),
+            h('input', {
+              ref: fileInput, type: 'file', accept: 'image/png,image/jpeg,image/webp', style: { display: 'none' },
+              onChange: (event) => { void take(event.target.files?.[0]); event.target.value = '' },
+            })),
+          h('div', { className: 'dss-actions' },
+            h('button', { type: 'button', className: 'dss-button', disabled: !prompt.trim() || running, onClick: run }, running ? t('editor.running') : t('editor.run'))),
+          trial ? h('div', { className: `dss-output${trial.ok ? '' : ' error'}` }, trial.ok ? trial.output : failureText(t, trial.error)) : null),
+        h('div', { className: 'dss-actions', style: { marginTop: 16 } },
+          h('button', { type: 'button', className: 'dss-button primary', disabled: !valid, onClick: () => onSave({ name: name.trim(), icon, prompt: prompt.trim() }) }, t('editor.save')),
+          h('button', { type: 'button', className: 'dss-button', onClick: onCancel }, t('editor.cancel'))))
+    }
+
+    /** The 截图 tab: the feature switch, its process, the shortcut, the save folder and the AI row. */
+    function ShotPanel({ t, settings, status, catalog, update, act, saveNow, platform, defaults }) {
+      const mac = platform === 'darwin'
+      const [editing, setEditing] = useState(null)
+      const [note, setNote] = useState(null)
+      const capture = settings.capture
+      const setCapture = (patch) => update({ capture: { ...capture, ...patch } })
+      const limits = catalog.limits
+      const customCount = capture.actions.filter((entry) => entry.custom).length
+      const saveAction = (draft) => {
+        if (editing && editing.id) {
+          setCapture({ actions: capture.actions.map((entry) => (entry.id === editing.id ? { ...entry, ...draft } : entry)) })
+        } else {
+          // New actions go before 问一问, which stays last unless the user moves it.
+          const at = capture.actions.findIndex((entry) => entry.id === 'ask')
+          const next = [...capture.actions]
+          next.splice(at < 0 ? next.length : at, 0, { id: `custom-${Math.random().toString(36).slice(2, 10)}`, custom: true, enabled: true, ...draft })
+          setCapture({ actions: next })
+        }
+        setEditing(null)
+      }
+      const worker = status ? status.worker : 'stopped'
+      const running = worker === 'running'
+      return h('div', null,
+        h(Section, { title: t('shot.title') },
+          h('div', { className: 'dss-card' },
+            h(Row, { label: t('shot.enabled'), hint: t('shot.enabled.hint') },
+              h(Switch, { checked: capture.enabled, label: t('shot.enabled'), onChange: (enabled) => setCapture({ enabled }) })),
+            capture.enabled && status && status.supported
+              ? h(Row, { label: t('shot.state'), hint: note },
+                h('span', { className: 'dss-state', style: { marginTop: 0 } },
+                  h('span', { className: 'dss-dot', 'data-state': running ? 'running' : worker === 'restarting' || worker === 'failed' ? 'error' : 'idle' }),
+                  t(`status.${worker}`)),
+                h('button', {
+                  type: 'button', className: 'dss-button', disabled: !running,
+                  onClick: () => act('/capture/start', (result) => setNote(result && result.ok === false && result.reason === 'no-permission' ? t('shot.noPermission') : null)),
+                }, t('shot.start')))
+              : null,
+            capture.enabled
+              ? h(ShortcutRow, {
+                t, value: capture.hotkey, fallback: defaults.capture.hotkey, mac, platform,
+                live: running ? status.hotkey : null, hint: t('shot.hotkey.hint'), onChange: (hotkey) => setCapture({ hotkey }),
+              })
+              : null,
+            h(Row, { label: t('shot.save'), hint: t('shot.save.hint') },
+              h('span', { className: 'dss-path', title: capture.saveDir }, capture.saveDir),
+              h('button', { type: 'button', className: 'dss-button', onClick: () => act('/capture/folder/choose') }, t('shot.save.choose')),
+              h('button', { type: 'button', className: 'dss-button quiet', onClick: () => act('/capture/folder/open') }, t(mac ? 'shot.save.open' : 'shot.save.openWin'))))),
+        h(Section, { title: t('shot.actions.title'), hint: t('shot.actions.hint') },
+          h(ShotActionList, { t, settings, catalog, onChange: (actions) => setCapture({ actions }), onEdit: (entry) => setEditing(entry) }),
+          editing
+            ? h(ShotActionEditor, { key: editing.id || 'new', t, catalog, limits, mac, initial: editing.id ? editing : null, onSave: saveAction, onCancel: () => setEditing(null), prepare: saveNow })
+            : h('div', { className: 'dss-actions' },
+              h('button', { type: 'button', className: 'dss-button', disabled: customCount >= limits.captureCustom, onClick: () => setEditing({}) }, h(Svg, { markup: catalog.icons.plus }), t('shot.actions.add')),
+              customCount >= limits.captureCustom ? h('span', { className: 'dss-hint' }, fill(t('shot.actions.limit'), { count: limits.captureCustom })) : null)))
+    }
+
+    /** The vision model for screenshots, in the shared 模型与语言 tab. */
+    function ShotModelSection({ t, settings, update, saveNow }) {
+      const [models, setModels] = useState(null)
+      const [test, setTest] = useState(null)
+      const load = useCallback(async () => {
+        try {
+          setModels(await request('/capture/models'))
+        } catch (error) {
+          setModels({ routes: [], selected: null, error: { code: 'MODEL_FAILED', detail: error.message } })
+        }
+      }, [])
+      useEffect(() => { void load() }, [load])
+      const routeLabel = (route) => `${route.providerName} · ${route.modelName}`
+      const chosen = settings.capture.model
+      const selected = chosen.provider && chosen.model ? `${chosen.provider}\u0000${chosen.model}` : ''
+      return h(Section, { title: t('shot.model.title'), hint: t('shot.model.hint') },
+        h('div', { className: 'dss-card' },
+          h(Row, {
+            label: t('model.route'),
+            hint: models && models.error ? fill(t('model.error'), { error: failureText(t, models.error) })
+              : models && models.routes.length === 0 ? t('shot.model.none')
+                : models && models.selected ? fill(t('model.current'), { route: routeLabel(models.selected) }) : null,
+          },
+          h('select', {
+            className: 'dss-select', value: selected, 'aria-label': t('shot.model.title'),
+            onChange: (event) => {
+              const [provider, model] = event.target.value ? event.target.value.split('\u0000') : ['', '']
+              update({ capture: { ...settings.capture, model: { provider, model } } })
+              setTest(null)
+              setTimeout(() => void load(), SAVE_DELAY_MS + 200)
+            },
+          },
+          h('option', { value: '' }, t('shot.model.auto')),
+          (models ? models.routes : []).map((route) => h('option', { key: `${route.provider}/${route.model}`, value: `${route.provider}\u0000${route.model}` }, routeLabel(route)))),
+          h('button', {
+            type: 'button', className: 'dss-button', disabled: Boolean(test && test.running),
+            onClick: async () => {
+              setTest({ running: true })
+              try {
+                await saveNow()
+                setTest(await request('/capture/models/test', { method: 'POST', body: '{}' }))
+              } catch (error) {
+                setTest({ ok: false, error: { code: 'MODEL_FAILED', detail: error.message } })
+              }
+            },
+          }, test && test.running ? t('model.testing') : t('model.test'))),
+          test && !test.running
+            ? h('div', { style: { padding: '0 16px 14px' } }, h('div', { className: `dss-output${test.ok ? '' : ' error'}` },
+              test.ok ? fill(t('shot.model.testOk'), { route: test.route ? routeLabel(test.route) : '', ms: test.ms, output: test.output }) : failureText(t, test.error)))
+            : null))
+    }
+
     // ---------- Failures and usage ----------
 
-    const FAILURE_CODES = new Set(['NO_LLM', 'NO_MODEL', 'MODEL_FAILED', 'EMPTY', 'TIMEOUT'])
+    const FAILURE_CODES = new Set(['NO_LLM', 'NO_MODEL', 'NO_VISION_MODEL', 'NO_ATTACHMENTS', 'MODEL_FAILED', 'EMPTY', 'TIMEOUT'])
 
     /** The Host reports stable codes; people read the matching sentence, with the provider's words after it. */
     function failureText(t, failure) {
@@ -659,6 +1150,7 @@ window.__ModuleLoader__.load({
       const number = (value) => value.toLocaleString(locale === 'zh' ? 'zh-CN' : 'en-US')
       const builtins = new Map(catalog.builtins.map((skill) => [skill.id, skill]))
       const skillName = (id) => {
+        if (id.startsWith('capture:')) return fill(t('usage.shot'), { name: shotActionName(t, settings, id.slice('capture:'.length)) })
         if (id === 'model-test') return t('usage.modelTest')
         if (id === 'skill-test') return t('usage.skillTest')
         if (builtins.has(id)) return builtins.get(id).name[locale]
@@ -694,8 +1186,8 @@ window.__ModuleLoader__.load({
           h('div', { className: 'dss-hint' }, usage.since ? fill(t('usage.since'), { day: usage.since }) : t('usage.privacy'))))
     }
 
-    // Grouped by what people come to change; the most used group first.
-    const TABS = ['general', 'skills', 'model', 'capture', 'apps', 'usage']
+    // One group for each feature, then what they share: models and language, and usage.
+    const TABS = ['selection', 'shot', 'model', 'usage']
 
     function Tabs({ t, tab, onSelect }) {
       // Arrow keys move between tabs, as screen readers expect of a tab list.
@@ -726,7 +1218,7 @@ window.__ModuleLoader__.load({
       const [models, setModels] = useState(null)
       const [modelTest, setModelTest] = useState(null)
       const [appDraft, setAppDraft] = useState('')
-      const [tab, setTab] = useState('general')
+      const [tab, setTab] = useState('selection')
       const [usage, setUsage] = useState(null)
       const pending = useRef(null)
       const timer = useRef(null)
@@ -871,9 +1363,15 @@ window.__ModuleLoader__.load({
               h('button', { type: 'button', className: 'dss-button primary', onClick: () => act('/permission/open') }, t('permission.open')))
             : null,
 
+          status.supported && status.platform === 'darwin' && settings.capture.enabled && status.capture && status.capture.permission === 'denied'
+            ? h('div', { className: 'dss-banner' },
+              h('div', { style: { flex: 1 } }, h('strong', null, t('shot.permission.title')), h('p', null, t('shot.permission.body'))),
+              h('button', { type: 'button', className: 'dss-button primary', onClick: () => act('/capture/permission/open') }, t('permission.open')))
+            : null,
+
           h(Tabs, { t, tab, onSelect: setTab }),
 
-          panel('general',
+          panel('selection',
             h('div', { className: 'dss-card', style: { marginTop: 20 } },
               h(Row, { label: t('enabled.label'), hint: t('enabled.hint') }, h(Switch, { checked: settings.enabled, label: t('enabled.label'), onChange: (enabled) => update({ enabled }) }))),
             h(Section, { title: t('toolbar.title') },
@@ -889,7 +1387,46 @@ window.__ModuleLoader__.load({
                   h('option', { value: 'modifier' }, t('toolbar.trigger.modifier')))),
               settings.toolbarStyle === 'mini' ? null : h(Row, { label: t('toolbar.size') },
                 h(NumberInput, { value: settings.toolbarSize, min: limits.toolbarSize.min, max: limits.toolbarSize.max, label: t('toolbar.size'), onChange: (toolbarSize) => update({ toolbarSize }) })))),
-            h(Section, { title: t('language.title') },
+            h(Section, { title: t('skills.title'), hint: settings.toolbarStyle === 'mini' ? t('skills.hintMini') : fill(t('skills.hint'), { count: settings.toolbarSize }) },
+            h(SkillList, { t, settings, catalog, update, onEdit: (entry) => setEditing(entry) }),
+            editing
+              ? h(SkillEditor, { key: editing.id || 'new', t, catalog, limits, initial: editing.id ? editing : null, onSave: saveSkill, onCancel: () => setEditing(null), prepare: saveNow })
+              : h('div', { className: 'dss-actions' },
+                h('button', { type: 'button', className: 'dss-button', onClick: () => setEditing({}) }, h(Svg, { markup: catalog.icons.plus }), t('skills.add')))),
+            h(Section, { title: t('capture.title') },
+            h('div', { className: 'dss-card' },
+              h(Row, { label: t('capture.clipboard'), hint: t('capture.clipboardHint') },
+                h(Switch, { checked: settings.clipboardFallback, label: t('capture.clipboard'), onChange: (clipboardFallback) => update({ clipboardFallback }) })),
+              h(Row, { label: t('capture.max') },
+                h(NumberInput, { value: settings.maxTextLength, min: limits.maxTextLength.min, max: limits.maxTextLength.max, label: t('capture.max'), onChange: (maxTextLength) => update({ maxTextLength }) })))),
+            h(Section, { title: t('search.title') },
+            h('div', { className: 'dss-card' },
+              h(Row, { label: t('search.engine') },
+                h('select', { className: 'dss-select', value: settings.searchEngine, onChange: (event) => update({ searchEngine: event.target.value }) },
+                  Object.keys(catalog.searchEngines).map((key) => h('option', { key, value: key }, ({ google: 'Google', bing: 'Bing', baidu: '百度 Baidu', duckduckgo: 'DuckDuckGo' })[key] || key)),
+                  h('option', { value: 'custom', disabled: !settings.customSearchUrl && settings.searchEngine !== 'custom' }, t('search.custom')))),
+              h(SearchUrlRow, { t, settings, update }))),
+            h(Section, { title: t('apps.title') },
+            h('div', { className: 'dss-card' },
+              settings.disabledApps.length
+                ? h('div', { className: 'dss-chips' }, settings.disabledApps.map((app) => h('span', { key: app, className: 'dss-chip' }, app,
+                  h('button', { type: 'button', className: 'dss-icon-button', 'aria-label': `${t('apps.remove')} ${app}`, onClick: () => update({ disabledApps: settings.disabledApps.filter((item) => item !== app) }) },
+                    h(Svg, { markup: catalog.icons.close, size: 14 })))))
+                : h('div', { className: 'dss-empty' }, t('apps.empty')),
+              h('div', { className: 'dss-inline' },
+                h('input', { className: 'dss-input', value: appDraft, placeholder: t('apps.placeholder'), onChange: (event) => setAppDraft(event.target.value), onKeyDown: (event) => { if (event.key === 'Enter') addApp(appDraft) } }),
+                h('button', { type: 'button', className: 'dss-button', disabled: !appDraft.trim(), onClick: () => addApp(appDraft) }, t('apps.add'))),
+              recentApps.filter((app) => !settings.disabledApps.includes(app)).length
+                ? h('div', { className: 'dss-recent' }, t('apps.recent'), recentApps.filter((app) => !settings.disabledApps.includes(app)).map((app) => h('button', {
+                  key: app, type: 'button', className: 'dss-chip suggest', onClick: () => addApp(app),
+                }, `+ ${app}`)))
+                : null))),
+
+          panel('shot',
+            h(ShotPanel, { t, settings, status: status.capture, catalog, update, act, saveNow, platform: status.platform, defaults: state.defaults })),
+
+          panel('model',
+            h(Section, { title: t('language.title'), hint: t('language.hint') },
             h('div', { className: 'dss-card' },
               h(Row, { label: t('language.native') },
                 h('select', { className: 'dss-select', value: settings.nativeLanguage, onChange: (event) => update({ nativeLanguage: event.target.value }) },
@@ -902,17 +1439,7 @@ window.__ModuleLoader__.load({
                 h('select', { className: 'dss-select', value: settings.answerLanguage, onChange: (event) => update({ answerLanguage: event.target.value }) },
                   h('option', { value: 'native' }, t('language.answer.native')),
                   h('option', { value: 'source' }, t('language.answer.source')),
-                  catalog.languages.map((language) => h('option', { key: language.code, value: language.code }, language.name))))))),
-
-          panel('skills',
-            h(Section, { title: t('skills.title'), hint: settings.toolbarStyle === 'mini' ? t('skills.hintMini') : fill(t('skills.hint'), { count: settings.toolbarSize }) },
-            h(SkillList, { t, settings, catalog, update, onEdit: (entry) => setEditing(entry) }),
-            editing
-              ? h(SkillEditor, { key: editing.id || 'new', t, catalog, limits, initial: editing.id ? editing : null, onSave: saveSkill, onCancel: () => setEditing(null), prepare: saveNow })
-              : h('div', { className: 'dss-actions' },
-                h('button', { type: 'button', className: 'dss-button', onClick: () => setEditing({}) }, h(Svg, { markup: catalog.icons.plus }), t('skills.add'))))),
-
-          panel('model',
+                  catalog.languages.map((language) => h('option', { key: language.code, value: language.code }, language.name)))))),
             h(Section, { title: t('model.title'), hint: t('model.hint') },
             h('div', { className: 'dss-card' },
               h(Row, {
@@ -949,39 +1476,8 @@ window.__ModuleLoader__.load({
                   modelTest.ok
                     ? fill(t('model.testOk'), { route: modelTest.route ? routeLabel(modelTest.route) : '', ms: modelTest.ms, output: modelTest.output.trim() })
                     : failureText(t, modelTest.error)))
-                : null))),
-
-          panel('capture',
-            h(Section, { title: t('capture.title') },
-            h('div', { className: 'dss-card' },
-              h(Row, { label: t('capture.clipboard'), hint: t('capture.clipboardHint') },
-                h(Switch, { checked: settings.clipboardFallback, label: t('capture.clipboard'), onChange: (clipboardFallback) => update({ clipboardFallback }) })),
-              h(Row, { label: t('capture.max') },
-                h(NumberInput, { value: settings.maxTextLength, min: limits.maxTextLength.min, max: limits.maxTextLength.max, label: t('capture.max'), onChange: (maxTextLength) => update({ maxTextLength }) })))),
-            h(Section, { title: t('search.title') },
-            h('div', { className: 'dss-card' },
-              h(Row, { label: t('search.engine') },
-                h('select', { className: 'dss-select', value: settings.searchEngine, onChange: (event) => update({ searchEngine: event.target.value }) },
-                  Object.keys(catalog.searchEngines).map((key) => h('option', { key, value: key }, ({ google: 'Google', bing: 'Bing', baidu: '百度 Baidu', duckduckgo: 'DuckDuckGo' })[key] || key)),
-                  h('option', { value: 'custom', disabled: !settings.customSearchUrl && settings.searchEngine !== 'custom' }, t('search.custom')))),
-              h(SearchUrlRow, { t, settings, update })))),
-
-          panel('apps',
-            h(Section, { title: t('apps.title') },
-            h('div', { className: 'dss-card' },
-              settings.disabledApps.length
-                ? h('div', { className: 'dss-chips' }, settings.disabledApps.map((app) => h('span', { key: app, className: 'dss-chip' }, app,
-                  h('button', { type: 'button', className: 'dss-icon-button', 'aria-label': `${t('apps.remove')} ${app}`, onClick: () => update({ disabledApps: settings.disabledApps.filter((item) => item !== app) }) },
-                    h(Svg, { markup: catalog.icons.close, size: 14 })))))
-                : h('div', { className: 'dss-empty' }, t('apps.empty')),
-              h('div', { className: 'dss-inline' },
-                h('input', { className: 'dss-input', value: appDraft, placeholder: t('apps.placeholder'), onChange: (event) => setAppDraft(event.target.value), onKeyDown: (event) => { if (event.key === 'Enter') addApp(appDraft) } }),
-                h('button', { type: 'button', className: 'dss-button', disabled: !appDraft.trim(), onClick: () => addApp(appDraft) }, t('apps.add'))),
-              recentApps.filter((app) => !settings.disabledApps.includes(app)).length
-                ? h('div', { className: 'dss-recent' }, t('apps.recent'), recentApps.filter((app) => !settings.disabledApps.includes(app)).map((app) => h('button', {
-                  key: app, type: 'button', className: 'dss-chip suggest', onClick: () => addApp(app),
-                }, `+ ${app}`)))
-                : null))),
+                : null)),
+            h(ShotModelSection, { t, settings, update, saveNow })),
 
           panel('usage',
             h(UsagePanel, {
@@ -1002,6 +1498,7 @@ window.__ModuleLoader__.load({
               },
             }, t('footer.reset')),
             status.supported ? h('button', { type: 'button', className: 'dss-button quiet', onClick: () => act('/worker/restart') }, t('footer.restart')) : null,
+            status.supported && settings.capture.enabled ? h('button', { type: 'button', className: 'dss-button quiet', onClick: () => act('/capture/restart') }, t('footer.restartShot')) : null,
             h('div', { className: 'dss-hint' }, t('footer.data')))))
     }
 
@@ -1054,6 +1551,38 @@ window.__ModuleLoader__.load({
           'dsh-selection: settings page',
         )
         ctx.effect(() => events.start(), 'dsh-selection: event stream')
+        // The toolbar and the screenshot pages follow DSH's interface language, which only this
+        // side knows for sure (with no language set, DSH follows the browser).
+        const activeLocale = () => {
+          try {
+            return ctx.locale.getLocale?.().active ?? null
+          } catch {
+            return null
+          }
+        }
+        let reported = null
+        let reporting = false
+        const reportLocale = () => {
+          const locale = activeLocale()
+          if (!locale || locale === reported) return
+          reported = locale
+          reporting = true
+          request('/locale', { method: 'PUT', body: JSON.stringify({ locale }) })
+            .catch(() => { reported = null })
+            .finally(() => { reporting = false })
+        }
+        reportLocale()
+        if (typeof ctx.locale.subscribe === 'function') ctx.effect(() => ctx.locale.subscribe(reportLocale), 'dsh-selection: interface language')
+        // A restarted Host may not know it yet: it says which language it uses in every status.
+        ctx.effect(() => events.subscribe((event, data) => {
+          // A status sent before the report arrived is not news.
+          if (event !== 'status' || !data?.uiLocale || reporting) return
+          const locale = activeLocale()
+          if (locale && data.uiLocale !== (locale.toLowerCase().startsWith('zh') ? 'zh' : 'en')) {
+            reported = null
+            reportLocale()
+          }
+        }), 'dsh-selection: interface language check')
         // "More settings…" in the toolbar menu asks the Host to bring DSH forward on this page.
         ctx.effect(() => events.subscribe((event) => {
           if (event !== 'navigate') return

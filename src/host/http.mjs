@@ -6,6 +6,8 @@ import { BadRequest } from './service.mjs'
 
 export const ROUTE = '/dsh-selection'
 const MAX_BODY_BYTES = 256 * 1024
+/** A screenshot action's trial image arrives inline as base64; a Retina screenshot is a few megabytes. */
+const MAX_IMAGE_BODY_BYTES = 16 * 1024 * 1024
 const KEEPALIVE_MS = 25_000
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]'])
 
@@ -51,6 +53,27 @@ export function createHttpHandler(service, { log, connection }) {
         case 'POST /api/permission/open':
           service.openPermissionSettings()
           return sendJson(res, 200, { ok: true })
+        case 'PUT /api/locale':
+          return sendJson(res, 200, service.reportLocale(await readJson(req)))
+        case 'POST /api/capture/start':
+          return sendJson(res, 200, service.capture.start())
+        case 'GET /api/capture/models':
+          return sendJson(res, 200, await service.capture.listModels())
+        case 'POST /api/capture/models/test':
+          return sendJson(res, 200, await service.capture.testModel())
+        case 'POST /api/capture/actions/test':
+          return sendJson(res, 200, await service.capture.testAction(await readJson(req, MAX_IMAGE_BODY_BYTES)))
+        case 'POST /api/capture/folder/open':
+          service.capture.openFolder()
+          return sendJson(res, 200, { ok: true })
+        case 'POST /api/capture/folder/choose':
+          return sendJson(res, 200, { settings: await service.capture.chooseFolder() })
+        case 'POST /api/capture/permission/open':
+          service.capture.openPermissionSettings()
+          return sendJson(res, 200, { ok: true })
+        case 'POST /api/capture/restart':
+          service.capture.restart()
+          return sendJson(res, 200, { ok: true })
         default:
           return sendJson(res, 404, { error: 'not found' })
       }
@@ -86,13 +109,13 @@ function isJson(req) {
   return String(req.headers['content-type'] ?? '').toLowerCase().startsWith('application/json')
 }
 
-function readJson(req) {
+function readJson(req, limit = MAX_BODY_BYTES) {
   return new Promise((resolve, reject) => {
     const chunks = []
     let size = 0
     req.on('data', (chunk) => {
       size += chunk.length
-      if (size > MAX_BODY_BYTES) {
+      if (size > limit) {
         reject(new BadRequest('request body too large'))
         req.destroy()
         return

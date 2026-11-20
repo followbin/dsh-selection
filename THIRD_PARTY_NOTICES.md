@@ -4,10 +4,10 @@ dsh-selection ships or depends on the following software. Each is used under its
 
 | Component | Use | License | Copyright |
 | --- | --- | --- | --- |
-| [selection-hook](https://github.com/0xfullex/selection-hook) 2.1.2 | Vendored in `vendor/selection-hook` (JavaScript loader and N-API prebuilds for macOS and Windows): global input hooks and reading the selected text | MIT | © 2025 0xfullex |
+| [selection-hook](https://github.com/0xfullex/selection-hook) 2.1.2 | Vendored in `vendor/selection-hook` (JavaScript loader and N-API prebuilds for macOS and Windows): global input hooks, reading the selected text, and the screenshot shortcut's fallback listener | MIT | © 2025 0xfullex |
 | [@webviewjs/webview](https://github.com/webviewjs/webview) 0.6.0 | npm dependency: system web view windows (built on tao and wry) | MIT | © 2024 Twilight |
 | [koffi](https://koffi.dev/) 3.3.6 (`@koromix/koffi-*` platform packages) | npm dependency: calling macOS and Windows system APIs | MIT | © 2026 Niels Martignène |
-| [Lucide](https://lucide.dev/) icons | Path data copied into `src/shared/icons.mjs` | ISC (portions MIT, from Feather) | © Lucide Contributors 2022; portions © Cole Bemis 2013–2022 |
+| [Lucide](https://lucide.dev/) icons | Path data copied into `src/shared/icons.mjs` and `src/capture/shared/icons.mjs` | ISC (portions MIT, from Feather) | © Lucide Contributors 2022; portions © Cole Bemis 2013–2022 |
 
 The full MIT text for selection-hook is in `vendor/selection-hook/LICENSE`; the other packages include their license files in `node_modules`.
 

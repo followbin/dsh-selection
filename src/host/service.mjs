@@ -1,15 +1,19 @@
 // The Host half: owns settings, the worker process and model calls, and answers the settings page.
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { writeFileAtomic } from './files.mjs'
 import { fileURLToPath } from 'node:url'
 import { CUSTOM_SKILL_ICONS, ICONS } from '../shared/icons.mjs'
 import { openWithSystem } from '../shared/open-with-system.mjs'
 import { dataDirectory } from '../shared/paths.mjs'
 import { ModelError, createModelClient } from './llm.mjs'
 import {
-  BUILTIN_SKILLS, LANGUAGES, LIMITS, SEARCH_ENGINES,
+  BUILTIN_SKILLS, CAPTURE_ACTIONS, LANGUAGES, LIMITS, SEARCH_ENGINES,
   createSettingsStore, defaultSettings, enabledSkills, findSkill, searchTemplate,
 } from './settings.mjs'
 import { buildRequest } from './skills.mjs'
+import { createCaptureService } from '../capture/host/capture.mjs'
+import { BUILTIN_ACTION_ICONS, CUSTOM_ACTION_ICONS } from '../capture/shared/icons.mjs'
 import { startWorker } from './supervisor.mjs'
 import { createUsageStore } from './usage.mjs'
 
@@ -23,6 +27,7 @@ export class BadRequest extends Error {}
 /**
  * @param {{
  *   getLlm: () => any,
+ *   getAttachments?: () => any,
  *   log: (level: string, message: string, fields?: object) => void,
  *   dataDir?: string,
  *   desktop: boolean,
@@ -30,14 +35,26 @@ export class BadRequest extends Error {}
  *   platform?: string,
  *   startWorker?: typeof startWorker,
  *   openExternal?: (url: string) => void,
+ *   localePreference?: string,
  * }} options `desktop` is false when the Host is not on the user's machine (e.g. a remote web Host).
- *   Tests replace `platform`, `startWorker` and `openExternal`.
+ *   Tests replace `platform`, `startWorker` and `openExternal`. `getAttachments` is DSH's attachment
+ *   store, which screenshots go through to reach a vision model.
  */
 export function createSelectionService({
-  getLlm, log, dataDir = dataDirectory(), desktop, promptForPermission = true,
+  getLlm, getAttachments = () => null, log, localePreference, dataDir = dataDirectory(), desktop, promptForPermission = true,
   platform = process.platform, startWorker: launchWorker = startWorker, openExternal = (url) => openWithSystem(url, log),
 }) {
   const settings = createSettingsStore({ file: join(dataDir, 'settings.json'), log })
+  // The language DSH's interface shows; the toolbar and the screenshot pages follow it. The
+  // DSH client reports its active language (it alone knows the browser's choice when no
+  // language is set explicitly); until it does, DSH's saved preference stands, then the last
+  // report, kept on disk so a restarted Host starts in the right language.
+  const localeFile = join(dataDir, 'ui-locale.json')
+  let reportedLocale = null
+  let preferredLocale = uiLocaleOf(localePreference)
+  let savedLocale = null
+  try { savedLocale = uiLocaleOf(JSON.parse(readFileSync(localeFile, 'utf8')).locale) } catch { /* no report yet */ }
+  const uiLocale = () => reportedLocale ?? preferredLocale ?? savedLocale ?? (settings.get().nativeLanguage.startsWith('zh') ? 'zh' : 'en')
   const model = createModelClient({ getLlm, log })
   const usage = createUsageStore({ file: join(dataDir, 'usage.json'), log })
   const subscribers = new Set()
@@ -49,6 +66,8 @@ export function createSelectionService({
     worker: 'stopped',
     permission: platform === 'darwin' ? 'unknown' : 'granted',
     hook: false,
+    capture: null,
+    uiLocale: null,
   }
 
   const worker = status.supported
@@ -66,9 +85,32 @@ export function createSelectionService({
     : null
   if (!status.supported) log('info', 'selection toolbar not started', { platform, desktop })
 
+  // Screenshots: their own worker process, the same settings, usage, events and permission page.
+  const capture = createCaptureService({
+    getLlm,
+    getAttachments,
+    log,
+    dataDir: join(dataDir, 'capture'),
+    supported: status.supported,
+    platform,
+    settings,
+    recordUsage: (key, route, counts) => recordUsage(key, route, counts),
+    onStatus: (next) => setStatus({ capture: next }),
+    // A region dragged out on the capture overlay must not be read as a text selection.
+    onCapturing: (active) => worker?.send({ type: 'suspend', on: active }),
+    startWorker: launchWorker,
+    openExternal,
+    uiLocale,
+  })
+  status.capture = capture.status()
+  status.uiLocale = uiLocale()
+  capture.setOpenSettings(() => openSettingsPage())
+
   let modelChoice = JSON.stringify(settings.get().model)
   const unsubscribe = settings.onChange((next) => {
     worker?.send({ type: 'config', config: workerConfig(next) })
+    // With no language reported, the native language decides, so it can move with the settings.
+    if (uiLocale() !== status.uiLocale) setStatus({ uiLocale: uiLocale() })
     if (JSON.stringify(next.model) !== modelChoice) {
       modelChoice = JSON.stringify(next.model)
       model.invalidate()
@@ -109,7 +151,18 @@ export function createSelectionService({
       searchTemplate: searchTemplate(current),
       translateTarget: current.translateTarget,
       languages: LANGUAGES.map(({ code, name }) => ({ code, name })),
+      locale: uiLocale(),
     }
+  }
+
+  /** The interface language changed: both worker pages and the settings page hear of it. */
+  function applyUiLocale() {
+    const next = uiLocale()
+    if (next === status.uiLocale) return
+    worker?.send({ type: 'config', config: workerConfig(settings.get()) })
+    // Only called once construction is done, so the screenshot service exists.
+    capture.refreshConfig()
+    setStatus({ uiLocale: next })
   }
 
   function handleWorkerMessage(message) {
@@ -248,6 +301,11 @@ export function createSelectionService({
           icons: ICONS,
           customIcons: CUSTOM_SKILL_ICONS,
           limits: LIMITS,
+          capture: {
+            actions: CAPTURE_ACTIONS,
+            icons: { ...BUILTIN_ACTION_ICONS, ...CUSTOM_ACTION_ICONS },
+            customIcons: Object.keys(CUSTOM_ACTION_ICONS),
+          },
         },
       }
     },
@@ -265,7 +323,10 @@ export function createSelectionService({
       return summary
     },
     /** DSH's model providers changed (sign-in, sign-out, a new API key). */
-    invalidateModels: () => model.invalidate(),
+    invalidateModels() {
+      model.invalidate()
+      capture.invalidateModels()
+    },
     async listModels() {
       try {
         const routes = await model.listRoutes({ fresh: true })
@@ -297,12 +358,49 @@ export function createSelectionService({
       if (platform !== 'darwin') throw new BadRequest('only macOS needs an accessibility grant')
       openExternal(ACCESSIBILITY_SETTINGS_URL)
     },
+    /**
+     * The DSH client's active interface language, reported by client.js.
+     * @param {unknown} input `{ locale }`, a BCP 47-style tag such as "zh" or "en-US".
+     */
+    reportLocale(input) {
+      const locale = uiLocaleOf(input?.locale)
+      if (!locale) throw new BadRequest('locale must be a language tag')
+      reportedLocale = locale
+      if (locale !== savedLocale) {
+        savedLocale = locale
+        try { writeFileAtomic(localeFile, `${JSON.stringify({ locale })}\n`) } catch (error) {
+          log('warn', 'saving the interface language failed', { error: String(error?.message ?? error) })
+        }
+      }
+      applyUiLocale()
+      return { locale }
+    },
+    /** DSH's saved language preference changed (absent: the client's browser decides). */
+    setLocalePreference(preference) {
+      preferredLocale = uiLocaleOf(preference)
+      applyUiLocale()
+    },
+    /** Screenshot operations for the settings page (see src/host/http.mjs). */
+    capture: {
+      start: () => capture.trigger(),
+      listModels: () => capture.listModels(),
+      testModel: () => capture.testModel(),
+      testAction: (input) => capture.testAction(input, BadRequest),
+      openFolder: () => capture.openSaveFolder(),
+      chooseFolder: () => capture.chooseSaveFolder(),
+      openPermissionSettings() {
+        if (platform !== 'darwin') throw new BadRequest('only macOS needs a screen-recording grant')
+        capture.openPermissionSettings()
+      },
+      restart: () => capture.restart(),
+    },
     subscribe(listener) {
       subscribers.add(listener)
       return () => subscribers.delete(listener)
     },
     async dispose() {
       unsubscribe()
+      await capture.dispose()
       abortRuns()
       usage.flush()
       emit('closing', {})
@@ -310,6 +408,12 @@ export function createSelectionService({
       await worker?.stop()
     },
   }
+}
+
+/** The pages are translated into Chinese and English; any other language reads English. */
+function uiLocaleOf(tag) {
+  if (typeof tag !== 'string' || !/^[A-Za-z]{2,8}(?:-[A-Za-z0-9]{1,8})*$/.test(tag)) return null
+  return tag.toLowerCase().startsWith('zh') ? 'zh' : 'en'
 }
 
 function sanitizeHistory(history) {

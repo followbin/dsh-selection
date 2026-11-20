@@ -1,8 +1,14 @@
 // User settings: the defaults, a normalizer that turns any input into a valid value,
 // and a file-backed store. Everything the settings page sends goes through normalizeSettings.
+import { execFileSync } from 'node:child_process'
 import { readFileSync, renameSync } from 'node:fs'
+import { homedir } from 'node:os'
+import { isAbsolute, join } from 'node:path'
 import { writeFileAtomic } from './files.mjs'
 import { CUSTOM_SKILL_ICONS, ICONS } from '../shared/icons.mjs'
+import { DEFAULT_HOTKEY } from '../capture/shared/defaults.mjs'
+import { CUSTOM_ACTION_ICONS } from '../capture/shared/icons.mjs'
+import { parseHotkey } from '../capture/worker/hotkey.mjs'
 
 /** Built-in skills in their default order. `kind` decides who handles a click. */
 export const BUILTIN_SKILLS = Object.freeze([
@@ -14,6 +20,14 @@ export const BUILTIN_SKILLS = Object.freeze([
   { id: 'copy', kind: 'copy', icon: 'copy', name: { zh: '复制', en: 'Copy' } },
   { id: 'polish', kind: 'prompt', icon: 'polish', name: { zh: '润色', en: 'Polish' } },
   { id: 'search', kind: 'search', icon: 'search', name: { zh: '搜索', en: 'Search' } },
+])
+
+/** Screenshot AI actions in their default order (the second row of the capture toolbar). */
+export const CAPTURE_ACTIONS = Object.freeze([
+  { id: 'ocr', name: { zh: '提取文字', en: 'Extract text' } },
+  { id: 'translate', name: { zh: '翻译', en: 'Translate' } },
+  { id: 'explain', name: { zh: '解释', en: 'Explain' } },
+  { id: 'ask', name: { zh: '问一问', en: 'Ask' } },
 ])
 
 export const LANGUAGES = Object.freeze([
@@ -44,11 +58,47 @@ export const LIMITS = Object.freeze({
   customPrompt: 4000,
   disabledApps: 200,
   appName: 200,
+  captureCustom: 12,
+  capturePrompt: 2000,
+  saveDir: 1000,
 })
 
 const LANGUAGE_CODES = new Set(LANGUAGES.map((language) => language.code))
 const BUILTIN_IDS = new Set(BUILTIN_SKILLS.map((skill) => skill.id))
 const CUSTOM_ID = /^custom-[a-z0-9]{4,24}$/
+const CAPTURE_IDS = new Set(CAPTURE_ACTIONS.map((action) => action.id))
+/** Modifier order of a stored shortcut, one spelling per chord. */
+const MODIFIER_ORDER = ['Control', 'Alt', 'Shift', 'Meta']
+
+let desktopDir = null
+/**
+ * The user's Desktop folder, the default place screenshots are saved. On Windows it is often
+ * redirected (OneDrive, another drive), so the shell is asked, once per Host.
+ */
+function desktopFolder() {
+  if (desktopDir) return desktopDir
+  desktopDir = join(homedir(), 'Desktop')
+  if (process.platform === 'win32') {
+    try {
+      // UTF-8 output: a redirected Desktop often has a localized name such as 桌面.
+      const out = execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command',
+        "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; [Environment]::GetFolderPath('Desktop')"],
+      { encoding: 'utf8', timeout: 5000, windowsHide: true }).trim()
+      if (out && isAbsolute(out)) desktopDir = out
+    } catch { /* PowerShell unavailable: the profile's Desktop stands */ }
+  }
+  return desktopDir
+}
+
+/** The capture shortcut in its one stored spelling (Control, Alt, Shift, Meta, key), or null. */
+export function canonicalHotkey(value) {
+  if (typeof value !== 'string' || !value.trim()) return null
+  const parsed = parseHotkey(value.trim())
+  if (!parsed || parsed.code === undefined) return null
+  if (parsed.modifiers.size === 0 && !/^F\d+$/.test(parsed.key)) return null
+  const key = parsed.key.length === 1 || /^F\d+$/.test(parsed.key) ? parsed.key : parsed.key[0] + parsed.key.slice(1).toLowerCase()
+  return [...MODIFIER_ORDER.filter((name) => parsed.modifiers.has(name)), key].join('+')
+}
 
 /** @returns {Settings} */
 export function defaultSettings() {
@@ -68,6 +118,13 @@ export function defaultSettings() {
     clipboardFallback: true,
     searchEngine: 'google',
     customSearchUrl: '',
+    capture: {
+      enabled: true,
+      hotkey: DEFAULT_HOTKEY,
+      saveDir: desktopFolder(),
+      actions: CAPTURE_ACTIONS.map((action) => ({ id: action.id, enabled: true })),
+      model: { provider: '', model: '' },
+    },
   }
 }
 
@@ -98,6 +155,7 @@ export function normalizeSettings(input) {
     clipboardFallback: typeof value.clipboardFallback === 'boolean' ? value.clipboardFallback : defaults.clipboardFallback,
     searchEngine: value.searchEngine === 'custom' || Object.hasOwn(SEARCH_ENGINES, value.searchEngine) ? value.searchEngine : 'google',
     customSearchUrl: isSearchTemplate(value.customSearchUrl) ? value.customSearchUrl.trim() : '',
+    capture: normalizeCapture(value.capture, defaults.capture),
   }
   if (settings.searchEngine === 'custom' && !settings.customSearchUrl) settings.searchEngine = 'google'
   return settings
@@ -228,6 +286,49 @@ function normalizeSkills(input) {
   return skills
 }
 
+function normalizeCapture(input, defaults) {
+  const value = isObject(input) ? input : {}
+  const saveDir = shortString(value.saveDir, LIMITS.saveDir)
+  return {
+    enabled: typeof value.enabled === 'boolean' ? value.enabled : defaults.enabled,
+    hotkey: canonicalHotkey(value.hotkey) ?? defaults.hotkey,
+    saveDir: saveDir && isAbsolute(saveDir) ? saveDir : defaults.saveDir,
+    actions: normalizeCaptureActions(value.actions),
+    model: {
+      provider: shortString(value.model?.provider, 100),
+      model: shortString(value.model?.model, 200),
+    },
+  }
+}
+
+/** Built-ins once each (a missing one is appended, enabled), custom actions with a known icon. */
+function normalizeCaptureActions(input) {
+  const actions = []
+  const seen = new Set()
+  let customCount = 0
+  for (const entry of Array.isArray(input) ? input : []) {
+    if (!isObject(entry) || typeof entry.id !== 'string' || seen.has(entry.id)) continue
+    const enabled = typeof entry.enabled === 'boolean' ? entry.enabled : true
+    if (CAPTURE_IDS.has(entry.id)) {
+      actions.push({ id: entry.id, enabled })
+      seen.add(entry.id)
+      continue
+    }
+    if (!CUSTOM_ID.test(entry.id) || customCount >= LIMITS.captureCustom) continue
+    const name = shortString(entry.name, LIMITS.customName)
+    const prompt = shortString(entry.prompt, LIMITS.capturePrompt)
+    if (!name || !prompt) continue
+    const icon = Object.hasOwn(CUSTOM_ACTION_ICONS, entry.icon) ? entry.icon : 'sparkles'
+    actions.push({ id: entry.id, custom: true, enabled, name, icon, prompt })
+    seen.add(entry.id)
+    customCount += 1
+  }
+  for (const action of CAPTURE_ACTIONS) {
+    if (!seen.has(action.id)) actions.push({ id: action.id, enabled: true })
+  }
+  return actions
+}
+
 function normalizeApps(input) {
   const apps = new Set()
   for (const entry of Array.isArray(input) ? input : []) {
@@ -279,4 +380,12 @@ function isObject(value) {
  * @property {boolean} clipboardFallback Simulate a copy when accessibility APIs cannot read the selection.
  * @property {string} searchEngine A key of SEARCH_ENGINES or `custom`.
  * @property {string} customSearchUrl http(s) URL containing `%s`.
+ * @property {{
+ *   enabled: boolean,
+ *   hotkey: string,
+ *   saveDir: string,
+ *   actions: Array<{ id: string, enabled: boolean, custom?: true, name?: string, icon?: string, prompt?: string }>,
+ *   model: { provider: string, model: string },
+ * }} capture Screenshots: the global shortcut, where Save writes, the AI row of the capture toolbar,
+ *   and the image-capable route (empty strings pick one automatically).
  */

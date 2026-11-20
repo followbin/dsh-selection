@@ -1,0 +1,141 @@
+:root {
+  --surface: #ffffff;
+  --ink: #1d1d1f;
+  --ink-2: #86868b;
+  --soft: #f2f2f4;
+  --hover: rgba(0, 0, 0, .055);
+  --press: rgba(0, 0, 0, .09);
+  --rule: rgba(0, 0, 0, .08);
+  --edge: rgba(0, 0, 0, .12);
+  --field: rgba(0, 0, 0, .14);
+  --field-focus: rgba(0, 0, 0, .3);
+  --danger: #d4302b;
+  --ok: #1f9d55;
+  --code: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --surface: #2a2a2d; --ink: #f2f2f4; --ink-2: #98989f; --soft: #38383c;
+    --hover: rgba(255, 255, 255, .07); --press: rgba(255, 255, 255, .12);
+    --rule: rgba(255, 255, 255, .09); --edge: rgba(255, 255, 255, .16);
+    --field: rgba(255, 255, 255, .16); --field-focus: rgba(255, 255, 255, .34);
+    --danger: #ff6b63; --ok: #4cc27a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --surface: #2a2a2d; --ink: #f2f2f4; --ink-2: #98989f; --soft: #38383c;
+  --hover: rgba(255, 255, 255, .07); --press: rgba(255, 255, 255, .12);
+  --rule: rgba(255, 255, 255, .09); --edge: rgba(255, 255, 255, .16);
+  --field: rgba(255, 255, 255, .16); --field-focus: rgba(255, 255, 255, .34);
+  --danger: #ff6b63; --ok: #4cc27a; color-scheme: dark;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: transparent; }
+body {
+  font: 13.5px/1.6 -apple-system, BlinkMacSystemFont, "PingFang SC", "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  color: var(--ink); -webkit-font-smoothing: antialiased;
+  user-select: none; -webkit-user-select: none; cursor: default;
+}
+button { font: inherit; color: inherit; border: 0; background: none; cursor: default; }
+button:focus, button:focus-visible, textarea:focus { outline: none; }
+svg { width: 17px; height: 17px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+
+/* The window is rounded and shadowed natively; this only draws its inner hairline. */
+#panel {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  background: var(--surface); border-radius: 12px; box-shadow: inset 0 0 0 .5px var(--edge);
+  overflow: hidden;
+}
+
+#head { flex: none; display: flex; align-items: center; gap: 8px; height: 42px; padding: 0 7px 0 12px; }
+body.dragging, body.dragging * { cursor: grabbing !important; }
+#thumb { width: 22px; height: 22px; border-radius: 5px; object-fit: cover; flex: none; background: var(--soft); box-shadow: 0 0 0 .5px var(--edge); }
+#title { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.spacer { flex: 1; }
+.tool { width: 28px; height: 28px; border-radius: 7px; display: grid; place-items: center; color: var(--ink-2); flex: none; }
+.tool:hover { background: var(--hover); color: var(--ink); }
+.tool:active { background: var(--press); }
+#pin[aria-pressed="true"] { background: var(--soft); color: var(--ink); }
+#pin[aria-pressed="true"] svg { transform: rotate(-35deg); }
+#pin svg { transition: transform .15s ease; }
+
+#body { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0 16px 6px; }
+#body::-webkit-scrollbar { width: 8px; }
+#body::-webkit-scrollbar-thumb { background: var(--rule); border-radius: 4px; border: 2px solid var(--surface); }
+
+.turn { display: flex; flex-direction: column; }
+.turn + .turn { margin-top: 14px; padding-top: 2px; }
+.question {
+  align-self: flex-end; max-width: 85%; padding: 6px 11px; border-radius: 12px 12px 3px 12px;
+  background: var(--soft); white-space: pre-wrap; word-break: break-word;
+  user-select: text; -webkit-user-select: text; cursor: text;
+}
+.question:empty { display: none; }
+.question:not(:empty) + .answer { margin-top: 8px; }
+.answer { word-break: break-word; user-select: text; -webkit-user-select: text; cursor: text; }
+.answer.plain { white-space: pre-wrap; tab-size: 4; }
+
+/* Waiting for the first piece, and still streaming. */
+.turn.pending .answer:empty::before { content: attr(data-waiting); color: var(--ink-2); }
+.turn.streaming .answer::after {
+  content: ""; display: inline-block; width: 18px; height: 6px; margin-left: 3px; vertical-align: middle;
+  background: radial-gradient(circle, var(--ink-2) 2px, transparent 2.5px) 0 0 / 6px 6px repeat-x;
+  animation: dots 1s steps(4) infinite;
+}
+@keyframes dots { from { width: 0 } to { width: 24px } }
+
+.failure { color: var(--danger); }
+.failure small { display: block; margin-top: 2px; color: var(--ink-2); font-size: 12px; word-break: break-word; }
+.failure .row { display: flex; gap: 6px; margin-top: 7px; }
+.failure button { height: 26px; padding: 0 10px; border-radius: 7px; background: var(--soft); color: var(--ink); font-size: 12.5px; }
+.failure button:hover { background: var(--press); }
+
+/* Under each finished reply: copy, and regenerate on the latest one. */
+.actions { display: none; gap: 2px; margin: 4px 0 0 -5px; }
+.turn.done .actions { display: flex; }
+.turn:not(.last) .act[data-act="again"] { display: none; }
+.act { width: 26px; height: 26px; border-radius: 6px; display: grid; place-items: center; color: var(--ink-2); }
+.act svg { width: 15px; height: 15px; }
+.act:hover { background: var(--hover); color: var(--ink); }
+.act.copied { color: var(--ok); }
+
+#composer {
+  flex: none; display: flex; align-items: flex-end; gap: 6px; margin: 6px 10px 10px; padding: 5px 5px 5px 11px;
+  border-radius: 12px; box-shadow: inset 0 0 0 1px var(--field); transition: box-shadow .12s ease;
+}
+#composer.focused { box-shadow: inset 0 0 0 1px var(--field-focus); }
+#input {
+  flex: 1; min-height: 26px; max-height: 92px; padding: 3px 0; border: 0; resize: none; background: transparent;
+  color: var(--ink); font: inherit; line-height: 1.5; overflow-y: hidden; scrollbar-width: none;
+  user-select: text; -webkit-user-select: text; cursor: text;
+}
+#input::-webkit-scrollbar { display: none; }
+#input::placeholder { color: var(--ink-2); }
+/* Neutral, not an accent colour: the ink colour when there is something to send. */
+#send { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; flex: none; background: var(--ink); color: var(--surface); transition: opacity .12s ease; }
+#send svg { width: 16px; height: 16px; stroke-width: 2; }
+#send:hover { opacity: .85; }
+#send[disabled] { background: var(--soft); color: var(--ink-2); opacity: 1; }
+
+/* Model output */
+.answer:not(.plain) > * + * { margin-top: .6em; }
+.answer h3, .answer h4 { font-size: 14px; font-weight: 600; }
+.answer ul, .answer ol { padding-left: 1.35em; }
+.answer li + li { margin-top: .2em; }
+.answer strong { font-weight: 600; }
+.answer code { font-family: var(--code); font-size: 12px; padding: 1px 4px; border-radius: 4px; background: var(--soft); }
+.answer pre { padding: 8px 10px; border-radius: 8px; background: var(--soft); overflow-x: auto; }
+.answer pre code { padding: 0; background: none; font-size: 12px; line-height: 1.5; }
+.answer blockquote { padding-left: 10px; border-left: 3px solid var(--rule); color: var(--ink-2); }
+.answer a { text-decoration: underline; text-decoration-color: var(--field); }
+.answer table { border-collapse: collapse; font-size: 12.5px; }
+.answer th, .answer td { padding: 4px 8px; border: 1px solid var(--rule); text-align: left; vertical-align: top; }
+.answer th { background: var(--soft); font-weight: 600; }
+.answer hr { border: 0; border-top: 1px solid var(--rule); }
+.answer pre::-webkit-scrollbar { height: 6px; }
+.answer pre::-webkit-scrollbar-thumb { background: var(--field); border-radius: 3px; }
+
+/* Windows rounds and shadows the window itself (DWM); the page fills it edge to edge. */
+:root[data-platform="win32"] #panel { border-radius: 0; box-shadow: none; }

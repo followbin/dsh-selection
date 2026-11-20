@@ -1,0 +1,24 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>dsh-shot pin</title>
+<link rel="stylesheet" href="pin.css">
+
+<!-- On macOS the image is on the window's layer, beneath this page, and the page is chrome
+     only. Where windows have no such layer (Windows) the page shows it in #image, and draws
+     the size badge in #badge. -->
+<img id="image" alt="" hidden>
+<div id="frame"></div>
+<span id="badge" hidden></span>
+<i class="corner" data-at="nw"></i><i class="corner" data-at="ne"></i>
+<i class="corner" data-at="sw"></i><i class="corner" data-at="se"></i>
+<div id="bar">
+  <button id="copy" data-i18n-title="copy"><i data-icon="copy"></i></button>
+  <button id="save" data-i18n-title="save"><i data-icon="save"></i></button>
+  <button id="ask" data-i18n-title="ask"><i data-icon="ask"></i></button>
+  <i class="sep"></i>
+  <button id="close" class="no" data-i18n-title="close"><i data-icon="close"></i></button>
+</div>
+
+<script src="icons.js"></script>
+<script src="keys.js"></script>
+<script src="pin.js"></script>

@@ -112,12 +112,23 @@ function createContext(language) {
         }
       },
     },
+    localeListeners: new Set(),
     locale: {
       register(namespace, dictionaries) {
         ctx.dictionaries.set(namespace, dictionaries)
         return () => ctx.dictionaries.delete(namespace)
       },
       bind: (namespace) => (key) => ctx.dictionaries.get(namespace)?.[ctx.language]?.[key] ?? key,
+      getLocale: () => ({ active: ctx.language }),
+      subscribe(listener) {
+        ctx.localeListeners.add(listener)
+        return () => ctx.localeListeners.delete(listener)
+      },
+    },
+    /** DSH switching its interface language. */
+    switchLanguage(next) {
+      ctx.language = next
+      for (const listener of ctx.localeListeners) listener()
     },
     get(name) {
       if (name === 'layout') return ctx.layout
@@ -156,8 +167,15 @@ function loadClient(clock) {
 // ---------- Host side: real service and HTTP handler behind a fetch ----------
 
 function fakeWorker() {
-  const worker = { sent: [], restarts: 0, options: null }
+  const worker = { sent: [], restarts: 0, options: null, capture: null }
   worker.start = (options) => {
+    // The screenshot worker is started through the same launcher; it is kept apart so these
+    // tests drive the selection toolbar's process only.
+    if (options.workerPath.includes('/capture/')) {
+      worker.capture = { options, sent: [] }
+      options.onState({ state: 'running', pid: 2 })
+      return { send: (message) => worker.capture.sent.push(message), restart() {}, stop: async () => options.onState({ state: 'stopped', pid: null }) }
+    }
     worker.options = options
     options.onState({ state: 'running', pid: 1 })
     return {
@@ -546,8 +564,20 @@ describe('registration', () => {
       'dsh-selection: sidebar entry',
       'dsh-selection: settings page',
       'dsh-selection: event stream',
+      'dsh-selection: interface language',
+      'dsh-selection: interface language check',
       'dsh-selection: navigation',
     ])
+  })
+
+  test('reports DSH\'s interface language to the Host, and again when it changes', async () => {
+    const page = await openPage({ language: 'en' })
+    await page.step()
+    assert.deepEqual(page.requests('PUT', '/locale').map((request) => request.body), [{ locale: 'en' }])
+    assert.equal(page.host.service.getState().status.uiLocale, 'en')
+    await page.step(() => page.ctx.switchLanguage('zh'))
+    assert.deepEqual(page.requests('PUT', '/locale').map((request) => request.body), [{ locale: 'en' }, { locale: 'zh' }])
+    assert.equal(page.host.service.getState().status.uiLocale, 'zh')
   })
 
   test('the sidebar entry and the main panel share one id, and the entry is labelled in the current language', async () => {
@@ -556,9 +586,9 @@ describe('registration', () => {
     const { label, ...sidebar } = page.registration('sidebar.panellist').options
     assert.deepEqual(sidebar, { name: 'sidebar.panellist', id: PANEL, order: 30 })
     assert.deepEqual(page.registration('main').options, { name: 'main', key: PANEL, locale: NS })
-    assert.equal(label(), '划词助手')
+    assert.equal(label(), '划词+截图')
     page.ctx.language = 'en'
-    assert.equal(label(), 'Selection assistant', 'the label is looked up each time it is drawn')
+    assert.equal(label(), 'Selection + Screenshot', 'the label is looked up each time it is drawn')
   })
 
   test('the sidebar icon is drawn at the requested size and in the brand color while active', async () => {
@@ -601,6 +631,52 @@ describe('registration', () => {
   })
 })
 
+describe('screenshots tab', () => {
+  const shotSection = (page) => page.section(page.t('shot.actions.title'))
+  const shotNames = (page) => page.$$('.dss-skill-name', shotSection(page)).map((name) => name.firstChild.textContent)
+
+  test('shows the shortcut as the platform writes it, the save folder and the AI actions in order', async () => {
+    const page = await openPage()
+    await page.click(page.$('#dss-tab-shot'))
+    assert.equal(page.$('.dss-keys').textContent, '⌥D')
+    assert.ok(page.row(page.t('shot.save')).textContent.includes(page.hostSettings().capture.saveDir))
+    assert.deepEqual(shotNames(page), ['提取文字', '翻译', '解释', '问一问'])
+    assert.equal(page.button(page.t('shot.hotkey.reset')), undefined, 'no Reset while the shortcut is the default')
+  })
+
+  test('an action switch saves the whole screenshot settings as one patch', async () => {
+    const page = await openPage()
+    await page.click(page.$('#dss-tab-shot'))
+    await page.click(page.$('[role="switch"][aria-label="解释"]', shotSection(page)))
+    const [patch] = await page.save()
+    assert.deepEqual(Object.keys(patch), ['capture'])
+    assert.deepEqual(patch.capture.actions.map((action) => [action.id, action.enabled]), [['ocr', true], ['translate', true], ['explain', false], ['ask', true]])
+    assert.equal(patch.capture.hotkey, 'Alt+D', 'the rest of the screenshot settings go along unchanged')
+  })
+
+  test('a recorded shortcut is saved from its physical keys, and Reset brings back the default', async () => {
+    const page = await openPage()
+    await page.click(page.$('#dss-tab-shot'))
+    const keys = page.$('.dss-keys')
+    await page.click(keys)
+    assert.equal(keys.textContent, page.t('shot.hotkey.record'))
+    // ⌃⌥X types "≈" on a Mac; the physical key decides.
+    await page.step(() => keys.dispatchEvent(new window.KeyboardEvent('keydown', { key: '≈', code: 'KeyX', ctrlKey: true, altKey: true, bubbles: true, cancelable: true })))
+    assert.equal((await page.save())[0].capture.hotkey, 'Control+Alt+X')
+    await page.click(page.button(page.t('shot.hotkey.reset')))
+    assert.equal((await page.save())[0].capture.hotkey, 'Alt+D')
+  })
+
+  test('turning screenshots off hides the shortcut and stops the screenshot process', async () => {
+    const page = await openPage()
+    await page.click(page.$('#dss-tab-shot'))
+    await page.click(page.switchFor(page.t('shot.enabled')))
+    await page.save()
+    assert.equal(page.$('.dss-keys'), null)
+    assert.equal(page.hostSettings().capture.enabled, false)
+  })
+})
+
 describe('loading', () => {
   test('shows only the title until /api/state answers, then every section under its tab', async () => {
     let release
@@ -608,17 +684,16 @@ describe('loading', () => {
     assert.equal(page.$('.dss-title').textContent, page.t('title'))
     assert.equal(page.$$('.dss-section').length, 0)
     await page.step(release)
+    // One tab per feature, then what they share (models and language, usage).
     assert.deepEqual(page.$$('[role="tab"]').map((tab) => [tab.textContent, tab.getAttribute('aria-selected')]), [
-      ['tab.general', 'true'], ['tab.skills', 'false'], ['tab.model', 'false'], ['tab.capture', 'false'], ['tab.apps', 'false'], ['tab.usage', 'false'],
+      ['tab.selection', 'true'], ['tab.shot', 'false'], ['tab.model', 'false'], ['tab.usage', 'false'],
     ].map(([key, selected]) => [page.t(key), selected]))
     const sections = (id) => page.$$('.dss-section-title', page.$(`#dss-panel-${id}`)).map((title) => title.textContent)
-    assert.deepEqual(sections('general'), ['toolbar.title', 'language.title'].map(page.t))
-    assert.deepEqual(sections('skills'), [page.t('skills.title')])
-    assert.deepEqual(sections('model'), [page.t('model.title')])
-    assert.deepEqual(sections('capture'), ['capture.title', 'search.title'].map(page.t))
-    assert.deepEqual(sections('apps'), [page.t('apps.title')])
+    assert.deepEqual(sections('selection'), ['toolbar.title', 'skills.title', 'capture.title', 'search.title', 'apps.title'].map(page.t))
+    assert.deepEqual(sections('shot'), ['shot.title', 'shot.actions.title'].map(page.t))
+    assert.deepEqual(sections('model'), ['language.title', 'model.title', 'shot.model.title'].map(page.t))
     assert.deepEqual(sections('usage'), ['usage.byModel', 'usage.bySkill'].map(page.t))
-    assert.deepEqual(page.$$('[role="tabpanel"]').filter((panel) => !panel.hidden).map((panel) => panel.id), ['dss-panel-general'])
+    assert.deepEqual(page.$$('[role="tabpanel"]').filter((panel) => !panel.hidden).map((panel) => panel.id), ['dss-panel-selection'])
   })
 
   test('tabs show one group at a time, by click or by arrow keys', async () => {
@@ -629,11 +704,11 @@ describe('loading', () => {
     assert.deepEqual(visible(), ['dss-panel-usage'])
     assert.equal(tab('usage').getAttribute('aria-selected'), 'true')
     assert.equal(tab('usage').tabIndex, 0)
-    assert.equal(tab('general').tabIndex, -1, 'only the selected tab is in the tab order')
+    assert.equal(tab('selection').tabIndex, -1, 'only the selected tab is in the tab order')
     await page.press(tab('usage'), 'ArrowRight')
-    assert.deepEqual(visible(), ['dss-panel-general'], 'the last tab wraps to the first')
-    assert.equal(tab('general').ownerDocument.activeElement, tab('general'))
-    await page.press(tab('general'), 'ArrowLeft')
+    assert.deepEqual(visible(), ['dss-panel-selection'], 'the last tab wraps to the first')
+    assert.equal(tab('selection').ownerDocument.activeElement, tab('selection'))
+    await page.press(tab('selection'), 'ArrowLeft')
     assert.deepEqual(visible(), ['dss-panel-usage'])
   })
 
@@ -712,14 +787,14 @@ describe('loading', () => {
 
   test('follows DSH in English, built-in skill names included', async () => {
     const page = await openPage({ language: 'en' })
-    assert.equal(page.$('.dss-title').textContent, 'Selection assistant')
+    assert.equal(page.$('.dss-title').textContent, 'Selection + Screenshot')
     assert.equal(page.statusText(), 'Running')
     assert.deepEqual(page.skillLayout(), ['Translate', 'Summarize', 'Explain', 'Ask DSH', 'Read aloud', '|', 'Copy', 'Polish', 'Search'])
   })
 
   test('falls back to the Chinese text when DSH passes no translator', async () => {
     const page = await openPage({ props: {} })
-    assert.equal(page.$('.dss-title').textContent, '划词助手')
+    assert.equal(page.$('.dss-title').textContent, '划词+截图')
     assert.equal(page.skillLayout()[0], '翻译')
   })
 

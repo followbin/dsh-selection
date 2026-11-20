@@ -55,6 +55,7 @@ export function createController({
       bar: next.skills.slice(0, next.toolbarSize),
       more: next.skills.slice(next.toolbarSize),
       style: next.toolbarStyle === 'mini' ? 'mini' : 'full',
+      locale: next.locale,
     })
     if (!next.enabled) dismiss({ force: true, reason: 'disabled' })
   }

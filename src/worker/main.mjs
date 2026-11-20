@@ -26,6 +26,8 @@ const guarded = (name, handler) => (...args) => {
 }
 
 let config = null
+/** True while a screenshot is being taken: dragging out its region is not a text selection. */
+let suspended = false
 /** @type {Awaited<ReturnType<typeof createOverlay>> | null} */
 let overlay = null
 /** @type {ReturnType<typeof createController> | null} */
@@ -37,6 +39,10 @@ process.on('disconnect', () => shutdown(0))
 process.on('message', (message) => {
   if (message?.type === 'config') applyConfig(message.config)
   else if (message?.type === 'result') guarded('result', () => controller?.onResult(message))()
+  else if (message?.type === 'suspend') {
+    suspended = Boolean(message.on)
+    if (controller) applyHookFilters(config)
+  }
   else if (message?.type === 'shutdown') shutdown(0)
 })
 
@@ -101,7 +107,7 @@ function applyConfig(next) {
 // the app. While the toolbar cannot appear (turned off, or ⌥ not held), an empty include list makes
 // the native engine skip the read entirely.
 function applyHookFilters(next) {
-  const reading = next.enabled && (next.trigger !== 'modifier' || altDown)
+  const reading = next.enabled && !suspended && (next.trigger !== 'modifier' || altDown)
   if (next.clipboardFallback && reading) hook.enableClipboard()
   else hook.disableClipboard()
   if (!reading) hook.setGlobalFilterMode(SelectionHook.FilterMode.INCLUDE_LIST, [])

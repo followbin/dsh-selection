@@ -22,7 +22,9 @@ export function apply(ctx, config = {}) {
   const service = createSelectionService({
     // Looked up per request: the llm service may load after this plugin, or be swapped at runtime.
     getLlm: () => ctx.get('llm'),
+    getAttachments: () => ctx.get('attachments'),
     log,
+    localePreference: localePreference(ctx),
     dataDir,
     desktop,
     promptForPermission: config.promptForPermission !== false,
@@ -30,6 +32,10 @@ export function apply(ctx, config = {}) {
   log('info', 'plugin started', { platform: process.platform, desktop })
   ctx.effect(() => () => service.dispose(), 'dsh-selection: service')
   ctx.on('llm/adapters-updated', () => service.invalidateModels())
+  // DSH's own language setting (absent: the browser's language, which client.js reports).
+  ctx.on('settings/updated', (namespace, next) => {
+    if (namespace === 'locale') service.setLocalePreference(next?.preference)
+  })
   ctx.effect(
     () => ctx.webServer.register({
       kind: 'prefix',
@@ -38,4 +44,13 @@ export function apply(ctx, config = {}) {
     }),
     'dsh-selection: http routes',
   )
+}
+
+/** DSH's saved interface language, when one is set and the settings service is up. */
+function localePreference(ctx) {
+  try {
+    return ctx.get('settings')?.get('locale')?.preference
+  } catch {
+    return undefined
+  }
 }

@@ -1,0 +1,34 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>dsh-shot answer</title>
+<link rel="stylesheet" href="answer.css">
+
+<div id="panel">
+  <header id="head">
+    <img id="thumb" alt="">
+    <span id="title"></span>
+    <span class="spacer"></span>
+    <button id="pin" class="tool" aria-pressed="false"><i data-icon="pin"></i></button>
+    <button id="close" class="tool"><i data-icon="close"></i></button>
+  </header>
+  <div id="body"><div id="thread"></div></div>
+  <form id="composer">
+    <textarea id="input" rows="1" maxlength="2000"></textarea>
+    <button id="send" type="submit" disabled><i data-icon="up"></i></button>
+  </form>
+</div>
+
+<template id="turnTemplate">
+  <div class="turn">
+    <div class="question"></div>
+    <div class="answer"></div>
+    <div class="actions">
+      <button class="act" data-act="copy"><i data-icon="copy"></i></button>
+      <button class="act" data-act="again"><i data-icon="again"></i></button>
+    </div>
+  </div>
+</template>
+
+<script src="icons.js"></script>
+<script src="markdown.js"></script>
+<script src="answer.js"></script>

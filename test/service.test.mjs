@@ -58,8 +58,15 @@ describe('selection service (no toolbar process)', () => {
 
 /** A stand-in for the supervisor: records what the Host sends and lets a test speak as the worker. */
 function fakeWorker() {
-  const worker = { sent: [], restarts: 0, options: null }
+  const worker = { sent: [], restarts: 0, options: null, capture: null }
   worker.start = (options) => {
+    // The screenshot worker is started through the same launcher; it is kept apart so these
+    // tests drive the selection toolbar's process only.
+    if (options.workerPath.includes('/capture/')) {
+      worker.capture = { options, sent: [] }
+      options.onState({ state: 'running', pid: 2 })
+      return { send: (message) => worker.capture.sent.push(message), restart() {}, stop: async () => options.onState({ state: 'stopped', pid: null }) }
+    }
     worker.options = options
     options.onState({ state: 'running', pid: 1 })
     return {
@@ -107,7 +114,7 @@ describe('selection service with a toolbar process', () => {
     worker.emit({ type: 'hello' })
     const [{ type, config }] = worker.sent
     assert.equal(type, 'config')
-    assert.deepEqual(Object.keys(config).sort(), [
+    assert.deepEqual(Object.keys(config).filter((key) => key !== 'locale').sort(), [
       'clipboardFallback', 'disabledApps', 'enabled', 'languages', 'maxTextLength',
       'searchTemplate', 'skills', 'toolbarSize', 'toolbarStyle', 'translateTarget', 'trigger',
     ])

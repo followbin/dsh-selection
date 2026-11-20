@@ -1,0 +1,82 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>dsh-shot overlay</title>
+<link rel="stylesheet" href="overlay.css">
+
+<!-- Where the window has no native layer for the frozen frame (Windows), the page shows it
+     here, and draws the magnifier in #loupe. -->
+<img id="frozen" alt="" hidden>
+<div id="dim"></div>
+
+<div id="region">
+  <canvas id="canvas"></canvas>
+  <i class="grip" data-at="nw"></i><i class="grip" data-at="n"></i><i class="grip" data-at="ne"></i>
+  <i class="grip" data-at="w"></i><i class="grip" data-at="e"></i>
+  <i class="grip" data-at="sw"></i><i class="grip" data-at="s"></i><i class="grip" data-at="se"></i>
+</div>
+
+<div id="size"><b id="sizeW">0</b><s>×</s><b id="sizeH">0</b></div>
+<div id="hint" data-i18n="hint"></div>
+
+<div id="bar">
+  <div class="group">
+    <button data-tool="rect" data-i18n-title="rect"><i data-icon="square"></i></button>
+    <button data-tool="ellipse" data-i18n-title="ellipse"><i data-icon="circle"></i></button>
+    <button data-tool="arrow" data-i18n-title="arrow"><i data-icon="arrow"></i></button>
+    <button data-tool="line" data-i18n-title="line"><i data-icon="line"></i></button>
+    <button data-tool="pen" data-i18n-title="pen"><i data-icon="pen"></i></button>
+    <button data-tool="text" data-i18n-title="text"><i data-icon="text"></i></button>
+    <button data-tool="number" data-i18n-title="number"><i data-icon="number"></i></button>
+    <button data-tool="blur" data-i18n-title="blur"><i data-icon="blur"></i></button>
+  </div>
+  <i class="sep"></i>
+  <div class="group">
+    <button id="pin" data-i18n-title="pin"><i data-icon="pin"></i></button>
+  </div>
+  <i class="sep"></i>
+  <div class="group">
+    <button id="undo" data-i18n-title="undo"><i data-icon="undo"></i></button>
+    <button id="redo" data-i18n-title="redo"><i data-icon="redo"></i></button>
+    <button id="copy" data-i18n-title="copy"><i data-icon="copy"></i></button>
+    <button id="save" data-i18n-title="save"><i data-icon="save"></i></button>
+  </div>
+  <i class="sep"></i>
+  <div class="group">
+    <button id="cancel" class="no" data-i18n-title="cancel"><i data-icon="close"></i></button>
+    <button id="done" class="go" data-i18n-title="done"><i data-icon="check"></i></button>
+  </div>
+</div>
+
+<div id="airow">
+  <button data-ai="ocr"><i data-icon="ocr"></i><span data-i18n="aiOcr"></span></button>
+  <button data-ai="translate"><i data-icon="translate"></i><span data-i18n="aiTranslate"></span></button>
+  <button data-ai="explain"><i data-icon="explain"></i><span data-i18n="aiExplain"></span></button>
+  <button data-ai="ask"><i data-icon="ask"></i><span data-i18n="aiAsk"></span></button>
+</div>
+
+<div id="opts">
+  <span class="swatches" id="swatches"></span>
+  <i class="sep" id="colorSep"></i>
+  <label class="slider">
+    <span id="sizeLabel"></span>
+    <input id="sizeRange" type="range" min="1" max="16" step="1" value="2">
+    <output id="sizeValue">2</output>
+  </label>
+  <i class="sep" id="fillSep"></i>
+  <button id="fill" class="toggle" data-i18n-title="fill"><i data-icon="fill"></i></button>
+</div>
+
+<div id="ask">
+  <textarea id="prompt" rows="2" data-i18n-placeholder="askPlaceholder"></textarea>
+  <div class="row">
+    <span class="tip" data-i18n="askTip"></span>
+    <button id="askCancel" data-i18n="back"></button>
+    <button id="askSend" class="primary" data-i18n="send"></button>
+  </div>
+</div>
+
+<canvas id="loupe" hidden></canvas>
+
+<script src="icons.js"></script>
+<script src="keys.js"></script>
+<script src="overlay.js"></script>

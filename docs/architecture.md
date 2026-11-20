@@ -7,6 +7,7 @@ DSH Desktop (Electron main, launched by macOS LaunchServices)
    │             src/host/http.mjs         /dsh-selection/api/* for the settings page (+ SSE)
    │             src/host/usage.mjs        token counts per day, model and skill (numbers only)
    │             ctx.get('llm')            DSH's model service: prepareCall → stream
+   ├─ fork → src/capture/worker/main.mjs   screenshots: a second child process (see below)
    └─ fork → src/worker/main.mjs           a child process: crash isolation, own main thread
             ├─ src/worker/controller.mjs   what each selection, click, key, page and Host message does
             ├─ vendor/selection-hook       global mouse/keyboard hook, reads the selection
@@ -17,6 +18,28 @@ DSH Desktop (Electron main, launched by macOS LaunchServices)
 
 DSH web UI (renderer) ─ client.js          sidebar entry + settings page, talks to /dsh-selection/api
 ```
+
+## Screenshots
+
+Screenshots are a second worker under the same Host service, started and stopped with the `capture.enabled` setting:
+
+```text
+src/capture/host/capture.mjs        worker lifetime, screen-recording grant, vision model calls, save and clipboard
+src/capture/host/prompts.mjs        what each screenshot action asks the model, in the shared language settings
+src/capture/host/vision.mjs         image-capable routes of DSH's llm service, through DSH's attachment store
+src/capture/worker/main.mjs         hotkey (system registration, selection-hook as fallback), displays, session
+src/capture/worker/overlay.mjs      one window per display: the frozen frame on the window's own layer (macOS)
+                                    or painted by the page (Windows), a transparent web view above for editing
+src/capture/worker/pins.mjs         pinned captures;  answers.mjs  the AI answer panels and their conversations
+src/capture/worker/native/*.mjs     koffi: CoreGraphics/AppKit/Carbon on macOS, user32/gdi32/dwmapi on Windows
+ui/capture/*                        the overlay, pin and answer pages
+```
+
+The capture worker gets `--config={hotkey, locale, actions}` at start and a `settings` message on every change. It reports `ready`, `permission`, `hotkey` (`{ spec, registered, reason, listening }`), `displays`, `capturing` (`{ active }`: the overlay went up or down; the Host passes it to the selection worker as `suspend`), `captured` (copy, save or done, with the PNG), `ask` (an answer panel's request: `id`, `action`, `question`, `history`, `followUp?`, `png`), `pin-action`, `clipboard-text`, `open-settings` and `log`. The Host answers `ask` with `answer-chunk`, `answer-end` or `answer-fail` for that panel id. Usage is recorded under `capture:<action>` keys next to the skills.
+
+**The capture shortcut is registered with the system.** macOS Carbon `RegisterEventHotKey` (exclusive) and Windows `RegisterHotKey` deliver the chord to this process only, so the front app does not act on it too, and both report a chord another app already holds. Registration needs no Accessibility grant. selection-hook keeps listening: it starts a capture when registration failed, and on macOS it usually reports a registered press before the event pump delivers it; a second report of the same press within 600 ms is ignored.
+
+**The interface language is DSH's.** client.js reports DSH's active language (`PUT /api/locale`); the Host keeps the last report on disk and otherwise uses DSH's saved `locale` preference, and passes the result to both workers as `locale`. Answers from models still follow the answer language setting.
 
 ## Messages
 
@@ -34,11 +57,12 @@ Worker ↔ Host (Node IPC):
 | worker | `cancel` | `requestId` | The panel was closed or replaced. |
 | worker | `disable-app` / `open-settings` | `app?` | ⋯ menu actions. |
 | worker | `log` | `level`, `message`, `fields?` | Written to the Host's log. |
+| Host | `suspend` | `on` | A screenshot is being taken: stop reading selections until `on` is false. |
 | Host | `shutdown` | | Clean up and exit. |
 
 Page ↔ worker: the worker calls `window.bar.*` (`configure`, `showBar`, `showPanel`, `begin`, `append`, `done`, `fail`, `setSpeaking`, `setMenu`, `flash`, `reset`, and `probe` / `click` for self tests). The page posts JSON through `window.ipc.postMessage`: `page-ready` (first; the overlay ignores everything before it, and anything from another document), `page-error`, `size`, `skill`, `menu` (`disable-app` or `settings`; anything else is ignored), `drag`, `retry` (with the `requestId` of the failed request when it comes from a failure notice; without one it runs the panel's skill again), `language`, `ask`, `copy-result`, `open-url`, `pin`, `keyboard`, `close`.
 
-Settings page ↔ Host: `GET /api/state`, `/api/models`, `/api/usage`; `PUT /api/settings` (a patch); `POST /api/settings/reset`, `/api/models/test`, `/api/skills/test`, `/api/usage/reset`, `/api/worker/restart`, `/api/permission/open`; and `GET /api/events`, a server-sent event stream of `status`, `settings`, `usage`, `navigate` and `closing`. The worker's state is `starting`, `running`, `restarting`, `stopped` or `failed` (five starts in a row died before `ready`; it waits for the Restart button).
+Settings page ↔ Host: `GET /api/state`, `/api/models`, `/api/usage`, `/api/capture/models`; `PUT /api/settings` (a patch), `/api/locale`; `POST /api/settings/reset`, `/api/models/test`, `/api/skills/test`, `/api/usage/reset`, `/api/worker/restart`, `/api/permission/open`, and for screenshots `/api/capture/start`, `/api/capture/models/test`, `/api/capture/actions/test` (an instruction and an optional image), `/api/capture/folder/open`, `/api/capture/folder/choose`, `/api/capture/permission/open`, `/api/capture/restart`; and `GET /api/events`, a server-sent event stream of `status`, `settings`, `usage`, `navigate` and `closing`. The worker's state is `starting`, `running`, `restarting`, `stopped` or `failed` (five starts in a row died before `ready`; it waits for the Restart button).
 
 ## Decisions and the reasons behind them
 

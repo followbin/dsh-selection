@@ -1,0 +1,96 @@
+:root {
+  --mat: rgba(250, 250, 252, .86);
+  --mat-edge: rgba(0, 0, 0, .16);
+  --mat-top: rgba(255, 255, 255, .8);
+  --ink: #16161a;
+  --well: rgba(0, 0, 0, .08);
+  --rule: rgba(0, 0, 0, .12);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --mat: rgba(44, 44, 48, .86); --mat-edge: rgba(255, 255, 255, .14);
+    --mat-top: rgba(255, 255, 255, .1); --ink: #f4f4f7;
+    --well: rgba(255, 255, 255, .13); --rule: rgba(255, 255, 255, .16);
+  }
+}
+:root[data-theme="dark"] {
+  --mat: rgba(44, 44, 48, .86); --mat-edge: rgba(255, 255, 255, .14);
+  --mat-top: rgba(255, 255, 255, .1); --ink: #f4f4f7;
+  --well: rgba(255, 255, 255, .13); --rule: rgba(255, 255, 255, .16);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body { width: 100%; height: 100%; overflow: hidden; background: transparent; }
+body {
+  font: 12px/1.4 -apple-system, "SF Pro Text", "PingFang SC", "Segoe UI", "Microsoft YaHei UI", system-ui, sans-serif;
+  color: var(--ink); user-select: none; -webkit-user-select: none;
+  -webkit-font-smoothing: antialiased;
+}
+button { font: inherit; color: inherit; }
+button:focus, button:focus-visible { outline: none; }
+
+/* A hit area over the whole image, with a hairline edge drawn over it. */
+#frame { position: absolute; inset: 0; cursor: grab; border-radius: 6px; }
+#frame::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  box-shadow: inset 0 0 0 .5px rgba(0, 0, 0, .28);
+}
+body.dragging #frame { cursor: grabbing; }
+
+/* Corner handles: a short L in each corner while hovering; drag to resize in proportion. */
+.corner {
+  position: absolute; width: 16px; height: 16px; z-index: 3; opacity: 0;
+  transition: opacity 120ms ease;
+}
+.corner::before {
+  content: ''; position: absolute; width: 9px; height: 9px;
+  border: 2.5px solid #fff; filter: drop-shadow(0 0 1.2px rgba(0, 0, 0, .55));
+}
+.corner[data-at="nw"] { left: 0; top: 0; cursor: nwse-resize; }
+.corner[data-at="ne"] { right: 0; top: 0; cursor: nesw-resize; }
+.corner[data-at="sw"] { left: 0; bottom: 0; cursor: nesw-resize; }
+.corner[data-at="se"] { right: 0; bottom: 0; cursor: nwse-resize; }
+.corner[data-at="nw"]::before { left: 3px; top: 3px; border-right: 0; border-bottom: 0; border-top-left-radius: 3px; }
+.corner[data-at="ne"]::before { right: 3px; top: 3px; border-left: 0; border-bottom: 0; border-top-right-radius: 3px; }
+.corner[data-at="sw"]::before { left: 3px; bottom: 3px; border-right: 0; border-top: 0; border-bottom-left-radius: 3px; }
+.corner[data-at="se"]::before { right: 3px; bottom: 3px; border-left: 0; border-top: 0; border-bottom-right-radius: 3px; }
+body.hot .corner { opacity: 1; }
+
+/* Top-right chip, only while the pointer is over the image. */
+#bar {
+  position: absolute; top: 6px; right: 6px; z-index: 4;
+  display: flex; align-items: center; gap: 0; padding: 2px; border-radius: 8px;
+  background: var(--mat);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  backdrop-filter: blur(30px) saturate(180%);
+  border: .5px solid var(--mat-edge);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .22), inset 0 .5px 0 var(--mat-top);
+  opacity: 0; pointer-events: none; cursor: default;
+  transform: translateY(-2px);
+  transition: opacity 120ms ease, transform 120ms ease;
+}
+body.hot #bar { opacity: 1; pointer-events: auto; transform: none; }
+#bar button {
+  width: 24px; height: 24px; border: 0; border-radius: 6px; background: transparent;
+  cursor: pointer; display: grid; place-items: center;
+  transition: background 100ms ease;
+}
+#bar button:hover { background: var(--well); }
+#bar button.no { color: #e0453d; }
+#bar button.no:hover { background: rgba(224, 69, 61, .16); }
+#bar svg { width: 16px; height: 16px; fill: none; stroke: currentColor;
+  stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+#bar .sep { width: 1px; height: 13px; background: var(--rule); margin: 0 2px; }
+
+/* While zooming or resizing, the page lays out a frame behind the window: keep its chrome
+   out of sight until the size settles, so nothing in it appears to shake. */
+body.gesture #bar, body.gesture .corner { opacity: 0 !important; transition: none; }
+
+/* Where the window has no native layer (Windows): the image fills the window beneath the
+   chrome, and the badge sits in the bottom-right corner. */
+#image { position: fixed; inset: 0; width: 100%; height: 100%; object-fit: fill; z-index: 0;
+  user-select: none; -webkit-user-drag: none; pointer-events: none; }
+#image[hidden], #badge[hidden] { display: none; }
+#badge { position: fixed; right: 8px; bottom: 8px; z-index: 5; padding: 2px 6px; border-radius: 5px;
+  background: rgba(20, 20, 23, .74); color: #fff; font: 600 11px/1.3 -apple-system, "Segoe UI", system-ui, sans-serif;
+  pointer-events: none; font-variant-numeric: tabular-nums; }

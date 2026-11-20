@@ -1,14 +1,22 @@
 {
   "name": "@followbin/dsh-selection",
   "version": "0.2.2",
-  "description": "Select text in any app and let DSH translate, summarize, explain, answer or read it aloud.",
+  "description": "Select text or capture a region of the screen in any app, and let DSH translate, summarize, explain, extract or answer about it. Captures can be annotated, pinned and saved.",
   "keywords": [
     "dsh",
     "dsh-plugin",
     "deepseek-harness",
     "selection",
     "translate",
-    "popclip"
+    "popclip",
+    "screenshot",
+    "screen-capture",
+    "ocr",
+    "annotate",
+    "pin",
+    "vision",
+    "划词",
+    "截图"
   ],
   "license": "MIT",
   "author": "followbin",
@@ -41,6 +49,7 @@
     "locale/*.json",
     "src",
     "ui",
+    "assets",
     "vendor",
     "README.md",
     "README.zh-CN.md",
