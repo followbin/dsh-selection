@@ -1,10 +1,11 @@
 // Renders the README images in docs/images/<lang>/: the real toolbar page placed over a sample
 // document, the real settings page with sample data, an animated walk-through, and the real
-// capture overlay and answer panel over a sample desktop (capture.png, capture.gif).
+// capture overlay and answer panel over sample desktops (capture.gif, capture-explain.png,
+// capture-ocr.png).
 // Needs Google Chrome (headless), ffmpeg, and DSH installed: run `pnpm screenshots`, which uses DSH's
 // Electron in Node mode so the settings page can be drawn with DSH's own theme. Arguments narrow
 // the run: a language (zh, en) and/or a part (selection, capture).
-import { execFile, execFileSync } from 'node:child_process'
+import { execFile, execFileSync, spawn } from 'node:child_process'
 import { promisify } from 'node:util'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -129,10 +130,10 @@ const PARALLEL = 4
 const queue = []
 
 /** Queues one headless Chrome screenshot; `shoot()` takes them all, a few at a time. */
-function chrome(html, file, { width = 1100, height = 640, scale = 2, budget = 1200 } = {}) {
+function chrome(html, file, { width = 1100, height = 640, scale = 2 } = {}) {
   const page = join(work, `${Math.random().toString(36).slice(2)}.html`)
   writeFileSync(page, html)
-  queue.push({ page, file, width, height, scale, budget })
+  queue.push({ page, file, width, height, scale })
 }
 
 async function shoot() {
@@ -142,11 +143,69 @@ async function shoot() {
       await run(CHROME, [
         '--headless=new', '--disable-gpu', '--hide-scrollbars', '--no-first-run', '--no-default-browser-check',
         `--user-data-dir=${join(work, `chrome-${slot}`)}`, `--force-device-scale-factor=${job.scale}`,
-        `--window-size=${job.width},${job.height}`, `--virtual-time-budget=${job.budget}`, `--screenshot=${job.file}`,
+        `--window-size=${job.width},${job.height}`, '--virtual-time-budget=1200', `--screenshot=${job.file}`,
         pathToFileURL(job.page).href,
       ])
     }
   }))
+}
+
+/**
+ * One headless Chrome driven over its DevTools protocol, for pages that report when they are
+ * ready (`window.__sceneDone`). The command-line screenshot's virtual time skips ahead of image
+ * decoding and frame loads, so a scene that waits on those comes out half drawn there.
+ * Needs Node's WebSocket (Node 22 or later; DSH's runtime is Node 24).
+ */
+async function devtools() {
+  // A fresh profile per launch: an earlier launch's DevToolsActivePort would name a closed port.
+  const dir = mkdtempSync(join(work, 'chrome-devtools-'))
+  const browser = spawn(CHROME, [
+    '--headless=new', '--disable-gpu', '--hide-scrollbars', '--no-first-run', '--no-default-browser-check',
+    `--user-data-dir=${dir}`, '--remote-debugging-port=0', 'about:blank',
+  ], { stdio: 'ignore' })
+  const pause = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
+  let port = null
+  for (let i = 0; i < 200 && !port; i += 1) {
+    try { port = readFileSync(join(dir, 'DevToolsActivePort'), 'utf8').split('\n')[0] } catch { await pause(50) }
+  }
+  if (!port) throw new Error('headless Chrome did not open its DevTools port')
+  const target = (await (await fetch(`http://127.0.0.1:${port}/json/list`)).json()).find((entry) => entry.type === 'page')
+  const socket = new WebSocket(target.webSocketDebuggerUrl)
+  await new Promise((resolve, reject) => { socket.onopen = resolve; socket.onerror = reject })
+  let next = 0
+  const pending = new Map()
+  socket.onmessage = ({ data }) => {
+    const message = JSON.parse(data)
+    const call = pending.get(message.id)
+    if (!call) return
+    pending.delete(message.id)
+    if (message.error) call.reject(new Error(message.error.message))
+    else call.resolve(message.result)
+  }
+  const send = (method, params = {}) => new Promise((resolve, reject) => {
+    next += 1
+    pending.set(next, { resolve, reject })
+    socket.send(JSON.stringify({ id: next, method, params }))
+  })
+  const evaluate = async (expression, awaitPromise = false) => (await send('Runtime.evaluate', { expression, awaitPromise, returnByValue: true })).result?.value
+  return {
+    /** Load `html`, wait for its scene to finish, and write a PNG of the viewport to `file`. */
+    async shot(html, file, { width, height, scale }) {
+      const token = Math.random().toString(36).slice(2)
+      const page = join(work, `${token}.html`)
+      writeFileSync(page, `${html}<script>window.__sceneToken = ${JSON.stringify(token)}</script>`)
+      await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: scale, mobile: false })
+      await send('Page.navigate', { url: pathToFileURL(page).href })
+      for (let i = 0; i < 400 && (await evaluate('window.__sceneToken')) !== token; i += 1) await pause(25)
+      await Promise.race([evaluate('window.__sceneDone', true), pause(15000)])
+      const { data } = await send('Page.captureScreenshot', { format: 'png' })
+      writeFileSync(file, Buffer.from(data, 'base64'))
+    },
+    close() {
+      socket.close()
+      browser.kill()
+    },
+  }
 }
 
 const skillOf = (lang) => SKILLS.find((skill) => skill.id === STORY[lang].skill)
@@ -211,7 +270,10 @@ function sampleUsage() {
   const days = {}
   for (let back = 0; back < 9; back += 1) {
     days[day(back)] = {
-      [flash]: { translate: counts(14 - back, 5200 - back * 300, 1900 - back * 90, 2400), explain: counts(6, 4100, 3600), ask: counts(3, 2900, 1700, 1200) },
+      [flash]: {
+        translate: counts(14 - back, 5200 - back * 300, 1900 - back * 90, 2400), explain: counts(6, 4100, 3600), ask: counts(3, 2900, 1700, 1200),
+        'capture:ocr': counts(4, 6200, 900), 'capture:ask': counts(2, 5100, 1300),
+      },
       ...(back % 3 === 0 ? { [pro]: { polish: counts(2, 1300, 1200) } } : {}),
     }
   }
@@ -303,62 +365,130 @@ async function settingsPage(lang, tab) {
 }
 
 
-// ---------- Screenshots: the shipped overlay and answer pages over a sample desktop ----------
+// ---------- Screenshots: the shipped overlay and answer pages over sample desktops ----------
 
-const DESK = { width: 1280, height: 720 }
-/** The region the scene drags out, and the annotations drawn in it (page coordinates). */
-const PICK = [176, 104, 742, 520]
-const BOX = [196, 418, 724, 456]
-const ARROW = [704, 318, 640, 424]
+const DESK = { width: 1280, height: 760 }
 
-// Sample content written for these images.
+// Sample content written for these images. Each desktop is one window; a scene freezes it,
+// picks `region` out of it and shows what the AI answers about that region.
+const WINDOW_CSS = `
+  :root { color-scheme: light; }
+  html, body { margin: 0; height: 100%; }
+  body { background: linear-gradient(135deg, #dbe4f0, #e8e1ef); font: 15.5px/1.6 -apple-system, "Helvetica Neue", sans-serif; }
+  .window { position: absolute; background: #fff; border-radius: 12px; overflow: hidden;
+    box-shadow: 0 24px 60px rgba(15, 23, 42, 0.16), 0 0 0 1px rgba(15, 23, 42, 0.06); }
+  .titlebar { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px; border-bottom: 1px solid #eef0f3; color: #6b7280; font-size: 13px; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; }
+  .title { margin-left: 10px; }`
+const TITLEBAR = (title) => `<div class="titlebar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span><span class="title">${title}</span></div>`
+const desktop = (css, body) => `<!doctype html><html lang="en"><head><meta charset="utf-8"><style>${WINDOW_CSS}${css}</style></head><body>${body}</body></html>`
+
+const QUARTERS = [['Q1', 4.2], ['Q2', 4.9], ['Q3', 5.6], ['Q4', 6.6]]
+
+const DESKTOPS = {
+  /** A revenue chart with a note under it: what the walk-through asks about. */
+  chart: desktop(`
+    .window { left: 120px; top: 40px; width: 660px; height: 492px; }
+    .content { padding: 22px 40px; color: #1f2937; }
+    h1 { margin: 0 0 2px; font-size: 22px; }
+    .sub { color: #6b7280; font-size: 13.5px; margin-bottom: 14px; }
+    .note { margin-top: 10px; padding: 10px 14px; border-radius: 8px; background: #f3f6fb; color: #374151; font-size: 14px; }`,
+  `<div class="window">${TITLEBAR('revenue-dashboard')}<div class="content">
+    <h1>Revenue by quarter</h1><div class="sub">Fiscal year 2026, $M</div>
+    <svg width="580" height="276" viewBox="0 0 580 276" font-family="-apple-system, Helvetica Neue, sans-serif">
+      ${[0, 2, 4, 6, 8].map((v) => `<line x1="44" x2="570" y1="${246 - v * 26}" y2="${246 - v * 26}" stroke="#eef0f3"/><text x="34" y="${250 - v * 26}" font-size="12" fill="#9ca3af" text-anchor="end">${v}</text>`).join('')}
+      ${QUARTERS.map(([q, v], i) => {
+        const x = 80 + i * 126
+        const h = v * 26
+        return `<rect x="${x}" y="${246 - h}" width="72" height="${h}" rx="5" fill="${i === 3 ? '#2563eb' : '#93b4f5'}"/>
+          <text x="${x + 36}" y="${236 - h}" font-size="14" font-weight="600" fill="#1f2937" text-anchor="middle">${v.toFixed(1)}</text>
+          <text x="${x + 36}" y="268" font-size="14" fill="#6b7280" text-anchor="middle">${q}</text>`
+      }).join('')}
+    </svg>
+    <div class="note">Q4: new customers in Asia more than doubled; operating costs stayed flat.</div>
+  </div></div>`),
+
+  /** A terminal with a stack trace: what the Explain still answers about. */
+  error: desktop(`
+    .window { left: 60px; top: 110px; width: 700px; height: 470px; background: #1e1f24; }
+    .titlebar { border-bottom-color: #2c2e35; color: #9ca3af; }
+    pre { margin: 0; padding: 18px 22px; color: #d1d5db; font: 14px/1.65 ui-monospace, "SF Mono", Menlo, monospace; white-space: pre; }
+    .dim { color: #7c8290; } .err { color: #f87171; font-weight: 600; } .ok { color: #86efac; } .hl { color: #fde68a; }`,
+  `<div class="window">${TITLEBAR('zsh — shop')}<pre><span class="ok">~/shop</span> $ npm run report
+
+<span class="dim">&gt; shop@1.4.0 report
+&gt; node scripts/report.js</span>
+
+/Users/dev/shop/src/orders.js:42
+  const total = order.items.reduce((sum, item) =&gt; sum + item.price, 0)
+                            <span class="err">^</span>
+
+<span class="err">TypeError: Cannot read properties of undefined (reading 'reduce')</span>
+    at orderTotal (<span class="hl">/Users/dev/shop/src/orders.js:42:29</span>)
+    at Array.map (&lt;anonymous&gt;)
+    at buildReport (/Users/dev/shop/scripts/report.js:18:31)
+    at main (/Users/dev/shop/scripts/report.js:31:3)
+
+Node.js v24.4.0</pre></div>`),
+
+  /** A table shown as pixels in a screen share: what the Extract text still reads. */
+  table: desktop(`
+    .window { left: 60px; top: 110px; width: 700px; height: 470px; background: #26282e; }
+    .titlebar { border-bottom-color: #33353c; color: #9ca3af; }
+    .slide { margin: 26px auto 0; width: 600px; height: 340px; background: #fff; border-radius: 4px; padding: 26px 34px; box-sizing: border-box; color: #111827; }
+    h2 { margin: 0 0 14px; font: 600 22px/1.3 Georgia, serif; }
+    table { width: 100%; border-collapse: collapse; font: 16px/1.4 Georgia, serif; font-variant-numeric: tabular-nums; }
+    th, td { padding: 7px 10px; border-bottom: 1px solid #d1d5db; text-align: left; }
+    th { border-bottom: 2px solid #111827; }
+    td:not(:first-child), th:not(:first-child) { text-align: right; }
+    .bar { display: flex; justify-content: center; gap: 12px; margin-top: 16px; }
+    .bar i { width: 30px; height: 30px; border-radius: 50%; background: #3a3d45; }
+    .bar i.end { background: #dc2626; }`,
+  `<div class="window">${TITLEBAR('Weekly sync — screen sharing')}<div class="slide">
+    <h2>Budget by team (k$)</h2>
+    <table><tr><th>Team</th><th>Q1</th><th>Q2</th><th>Q3</th></tr>
+      <tr><td>Platform</td><td>120</td><td>135</td><td>150</td></tr>
+      <tr><td>Mobile</td><td>80</td><td>95</td><td>90</td></tr>
+      <tr><td>Data</td><td>60</td><td>70</td><td>85</td></tr>
+      <tr><td>Design</td><td>40</td><td>40</td><td>45</td></tr></table>
+  </div><div class="bar"><i></i><i></i><i></i><i class="end"></i></div></div>`),
+}
+
+const OCR_TEXT = 'Budget by team (k$)\nTeam\tQ1\tQ2\tQ3\nPlatform\t120\t135\t150\nMobile\t80\t95\t90\nData\t60\t70\t85\nDesign\t40\t40\t45'
+const FIX = '```js\nconst total = (order.items ?? [])\n  .reduce((sum, item) => sum + item.price, 0)\n```'
+
+/** What each scene asks and what the answers say, per language. */
 const CAPTURE_STORY = {
   zh: {
-    action: 'translate',
-    answer: '**季度更新**\n\n今年每个季度的营收都在增长。第四季度表现最好：亚洲的新客户数量翻了一倍多，而成本基本持平。\n\n| 季度 | 营收（百万美元） | 增长 |\n|---|---|---|\n| Q1 | 4.2 | 6% |\n| Q2 | 4.9 | 17% |\n| Q3 | 5.6 | 14% |\n| Q4 | 6.6 | 18% |',
+    walk: {
+      question: '为什么这个季度涨得最快？',
+      answer: '你圈出的是 **Q4**：营收从 Q3 的 5.6 涨到 **6.6**（百万美元），环比约 **+18%**，是全年最快的一季。\n\n图下的说明给了原因：\n- 亚洲的新客户数量翻了一倍多\n- 运营成本基本持平，多出来的收入大多是利润',
+      followUp: '整理成表格',
+      table: '| 季度 | 营收（百万美元） | 环比 |\n|---|---|---|\n| Q1 | 4.2 | — |\n| Q2 | 4.9 | +17% |\n| Q3 | 5.6 | +14% |\n| Q4 | 6.6 | +18% |',
+    },
+    explain: `**\`order.items\` 是 \`undefined\`**，所以对它调用 \`reduce\` 时报错。\n\n- 位置：\`src/orders.js\` 第 42 行，\`orderTotal\` 里\n- 来源：\`buildReport\` 对每个订单调用 \`orderTotal\`，至少有一个订单没有 \`items\`\n\n修复：没有商品时按空列表算\n\n${FIX}`,
   },
   en: {
-    action: 'explain',
-    answer: 'Revenue rose every quarter, from **$4.2M** in Q1 to **$6.6M** in Q4.\n\n- **Q4 grew fastest (18%)**, with new customers in Asia more than doubling.\n- Growth eased to 14% in Q3 before that jump.\n- Costs stayed flat, so most of the extra revenue is margin.',
+    walk: {
+      question: 'Why did this quarter grow fastest?',
+      answer: 'The box marks **Q4**: revenue rose from 5.6 to **6.6** ($M), about **+18%** on Q3, the fastest quarter of the year.\n\nThe note under the chart gives the reasons:\n- New customers in Asia more than doubled\n- Operating costs stayed flat, so most of the extra revenue is margin',
+      followUp: 'Make it a table',
+      table: '| Quarter | Revenue ($M) | vs. previous |\n|---|---|---|\n| Q1 | 4.2 | — |\n| Q2 | 4.9 | +17% |\n| Q3 | 5.6 | +14% |\n| Q4 | 6.6 | +18% |',
+    },
+    explain: `**\`order.items\` is \`undefined\`**, so calling \`reduce\` on it throws.\n\n- Where: \`src/orders.js\` line 42, inside \`orderTotal\`\n- Why: \`buildReport\` calls \`orderTotal\` for every order, and at least one order has no \`items\`\n\nFix: treat a missing list as empty\n\n${FIX}`,
   },
 }
 
-/** The desktop the capture freezes: one document window. */
-function desktopHtml() {
-  const rows = [['Q1', '4.2', '6%'], ['Q2', '4.9', '17%'], ['Q3', '5.6', '14%'], ['Q4', '6.6', '18%']]
-  return `<!doctype html><html lang="en"><head><meta charset="utf-8"><style>
-    :root { color-scheme: light; }
-    html, body { margin: 0; height: 100%; }
-    body { background: linear-gradient(135deg, #dbe4f0, #e8e1ef); font: 15.5px/1.7 -apple-system, "Helvetica Neue", sans-serif; }
-    .window { position: absolute; left: 150px; top: 56px; width: 620px; height: 600px; background: #fff; border-radius: 12px; overflow: hidden;
-      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.16), 0 0 0 1px rgba(15, 23, 42, 0.06); }
-    .titlebar { display: flex; align-items: center; gap: 8px; height: 38px; padding: 0 14px; border-bottom: 1px solid #eef0f3; color: #6b7280; font-size: 13px; }
-    .dot { width: 12px; height: 12px; border-radius: 50%; }
-    .title { margin-left: 10px; }
-    article { padding: 26px 46px; color: #1f2937; }
-    h1 { margin: 0 0 10px; font-size: 24px; }
-    p { margin: 0 0 16px; }
-    table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-    th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #e5e7eb; }
-    th { color: #6b7280; font-size: 13px; font-weight: 600; }
-  </style></head><body>
-    <div class="window">
-      <div class="titlebar"><span class="dot" style="background:#ff5f57"></span><span class="dot" style="background:#febc2e"></span><span class="dot" style="background:#28c840"></span><span class="title">quarterly-update.pdf</span></div>
-      <article>
-        <h1>Quarterly update</h1>
-        <p>Revenue grew in every quarter this year. The fourth quarter was the strongest: new customers in Asia more than doubled, while costs stayed flat.</p>
-        <table><tr><th>Quarter</th><th>Revenue ($M)</th><th>Growth</th></tr>${rows.map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join('')}</tr>`).join('')}</table>
-      </article>
-    </div>
-  </body></html>`
-}
+/** Regions and annotations, in page coordinates. */
+const WALK_PICK = [140, 88, 760, 516]
+const WALK_BOX = [604, 214, 704, 454]
+const STILL_PICK = [72, 150, 748, 568]
 
 /**
- * The overlay page as the worker loads it, over the frozen desktop, with the answer page in a
- * frame where its window would open. `steps` runs once the frame is on screen.
+ * The overlay page as the worker loads it, over a frozen desktop, with the answer page in a
+ * frame where its window would open. `steps` runs once the frozen frame is on screen.
  */
 function captureScene(lang, frameUrl, steps) {
-  const story = CAPTURE_STORY[lang]
   const actions = ['ocr', 'translate', 'explain', 'ask'].map((id) => ({ id, name: null, icon: BUILTIN_ACTION_ICONS[id] }))
   // The capture pages have no head or body tags: additions go after the charset and at the end.
   const answerPage = capturePage('answer').replace('<meta charset="utf-8">', `<meta charset="utf-8"><script>
@@ -366,6 +496,8 @@ function captureScene(lang, frameUrl, steps) {
   </script>`)
   // Its own scope: the overlay's script already declares names such as `tool` at the top level.
   const script = `(() => {
+    let finish
+    window.__sceneDone = new Promise((resolve) => { finish = resolve })
     const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms))
     const cursor = document.getElementById('cursor')
     const point = (x, y) => { cursor.style.display = 'block'; cursor.style.left = x + 'px'; cursor.style.top = y + 'px' }
@@ -383,17 +515,26 @@ function captureScene(lang, frameUrl, steps) {
       if (upTo >= 1) { fire('mouseup', x2, y2); await sleep(60) }
     }
     const hover = (selector) => { const b = document.querySelector(selector).getBoundingClientRect(); point(b.x + b.width * 0.42, b.y + b.height * 0.62) }
+    /** The ask box under the region, with \`text\` typed into it. */
+    function ask(text) {
+      document.querySelector('[data-ai="ask"]').click()
+      const prompt = document.getElementById('prompt')
+      prompt.value = text
+      prompt.dispatchEvent(new Event('input', { bubbles: true }))
+      cursor.style.display = 'none'
+    }
     const panel = document.getElementById('answer')
-    window.answerHeight = (height) => { panel.style.height = Math.min(560, height) + 'px' }
-    /** The capture ends and the answer panel opens beside the region, part of the reply in. */
-    async function answer(upTo) {
-      // The overlay is gone; only the desktop and the panel stay.
+    window.answerHeight = (height) => { panel.style.height = Math.min(600, height) + 'px' }
+    /**
+     * The capture ends and the answer panel opens beside the region: each turn is
+     * { question, text, done }, and \`typing\` is a follow-up still in the input.
+     */
+    async function answer(action, [x1, y1, x2, y2], turns, typing = '') {
       document.documentElement.classList.add('ended')
       const image = new Image()
       image.src = ${JSON.stringify(frameUrl)}
       await image.decode()
       const thumb = document.createElement('canvas')
-      const [x1, y1, x2, y2] = ${JSON.stringify(PICK)}
       thumb.width = (x2 - x1) * 2; thumb.height = (y2 - y1) * 2
       thumb.getContext('2d').drawImage(image, x1 * 2, y1 * 2, thumb.width, thumb.height, 0, 0, thumb.width, thumb.height)
       await new Promise((resolve) => { panel.onload = resolve; panel.srcdoc = ${JSON.stringify(answerPage)} })
@@ -401,24 +542,35 @@ function captureScene(lang, frameUrl, steps) {
       surface.locale(${JSON.stringify(lang)})
       surface.theme('light')
       surface.thumbnail(thumb.toDataURL('image/png'))
-      surface.open(${JSON.stringify(story.action)})
-      surface.begin(0, null)
-      const text = ${JSON.stringify(story.answer)}
-      if (upTo > 0) surface.chunk(0, text.slice(0, Math.ceil(text.length * upTo)))
-      if (upTo >= 1) surface.end(0)
-      panel.style.left = (x2 + 12) + 'px'
+      surface.open(action, { plain: action === 'ocr' })
+      turns.forEach((turn, index) => {
+        surface.begin(index, turn.question ?? null)
+        if (turn.text) surface.chunk(index, turn.text)
+        if (turn.done) surface.end(index)
+      })
+      const input = panel.contentDocument.getElementById('input')
+      input.value = typing
+      input.dispatchEvent(new Event('input', { bubbles: true }))
+      panel.contentWindow.document.activeElement?.blur()
+      panel.style.left = (x2 + 14) + 'px'
       panel.style.top = y1 + 'px'
-      await sleep(80)
+      await sleep(120)
       panel.style.visibility = 'visible'
     }
     addEventListener('load', async () => {
       window.shot.locale(${JSON.stringify(lang)})
       window.shot.theme('light')
       window.shot.actions(${JSON.stringify(actions)})
-      await new Promise((resolve) => { window.frameReady = resolve; window.shot.frame(${JSON.stringify(frameUrl)}, 1, 2) })
-      window.shot.shown(1, 2)
-      await sleep(60)
-      ${steps}
+      try {
+        await new Promise((resolve) => { window.frameReady = resolve; window.shot.frame(${JSON.stringify(frameUrl)}, 1, 2) })
+        window.shot.shown(1, 2)
+        await sleep(60)
+        ${steps}
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+        await sleep(40)
+      } finally {
+        finish()
+      }
     })
   })()`
   return capturePage('overlay')
@@ -426,51 +578,65 @@ function captureScene(lang, frameUrl, steps) {
       window.ipc = { postMessage(raw) { const m = JSON.parse(raw); if (m.type === 'frame-ready') window.frameReady?.() } }
     </script><style>
       html { background: url(${frameUrl}) 0 0 / 100% 100% no-repeat !important; }
+      html.ended body > :not(#answer) { display: none !important; }
       #answer { position: fixed; z-index: 100; width: 440px; height: 160px; border: 0; border-radius: 12px; visibility: hidden; background: transparent;
         box-shadow: 0 14px 44px rgba(15, 23, 42, 0.24), 0 0 0 0.5px rgba(15, 23, 42, 0.2); }
-      html.ended body > :not(#answer) { display: none !important; }
       #cursor { position: fixed; z-index: 101; width: 17px; height: 25px; display: none; pointer-events: none; filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.35)); }
     </style>`) + `<iframe id="answer"></iframe>
       <svg id="cursor" viewBox="0 0 17 25"><path d="M1 1v19.5l4.6-4.4 3 7.2 3.2-1.4-3-7h6.4z" fill="#111" stroke="#fff" stroke-width="1.4" stroke-linejoin="round"/></svg>
       <script>${script.replace(/<\//g, '<\\/')}</script>`
 }
 
-/** The frozen desktop as a data URL, rendered once at 2x. */
-async function desktopFrame() {
-  const file = join(work, 'desktop.png')
-  chrome(desktopHtml(), file, { ...DESK, scale: 2 })
+/** Each desktop as a data URL, rendered once at 2x. */
+async function desktopFrames() {
+  const files = Object.fromEntries(Object.keys(DESKTOPS).map((name) => [name, join(work, `desktop-${name}.png`)]))
+  for (const [name, html] of Object.entries(DESKTOPS)) chrome(html, files[name], { ...DESK, scale: 2 })
   await shoot()
-  return `data:image/png;base64,${readFileSync(file).toString('base64')}`
+  return Object.fromEntries(Object.entries(files).map(([name, file]) => [name, `data:image/png;base64,${readFileSync(file).toString('base64')}`]))
 }
 
-/** The capture still (an annotated region with the toolbar) and the capture walk-through. */
-async function captureImages(lang, frameUrl) {
-  const frames = []
-  const hold = (steps, times) => { for (let i = 0; i < times; i += 1) frames.push(steps) }
-  const fractions = (count) => Array.from({ length: count }, (_, i) => (i + 1) / count)
-  hold(`fire('mousemove', ${PICK[0] + 40}, ${PICK[1] + 60})`, 5)
-  hold(`fire('mousemove', ${PICK[0]}, ${PICK[1]})`, 3)
-  for (const f of fractions(6)) hold(`await drag(${JSON.stringify(PICK)}, ${f})`, f < 1 ? 1 : 7)
-  const picked = `await drag(${JSON.stringify(PICK)})`
-  hold(`${picked}; tool('rect'); point(${BOX[0]}, ${BOX[1]})`, 3)
-  for (const f of fractions(5)) hold(`${picked}; tool('rect'); await drag(${JSON.stringify(BOX)}, ${f})`, f < 1 ? 1 : 4)
-  const boxed = `${picked}; tool('rect'); await drag(${JSON.stringify(BOX)})`
-  hold(`${boxed}; tool('arrow'); point(${ARROW[0]}, ${ARROW[1]})`, 3)
-  for (const f of fractions(5)) hold(`${boxed}; tool('arrow'); await drag(${JSON.stringify(ARROW)}, ${f})`, f < 1 ? 1 : 6)
-  const annotated = `${boxed}; tool('arrow'); await drag(${JSON.stringify(ARROW)})`
-  const button = `[data-ai="${CAPTURE_STORY[lang].action}"]`
-  hold(`${annotated}; hover('${button}')`, 8)
-  hold(`${annotated}; await answer(0)`, 3)
-  for (const f of fractions(10)) hold(`${annotated}; await answer(${f})`, f < 1 ? 1 : 26)
+const pieces = (text, count) => Array.from({ length: count }, (_, i) => text.slice(0, Math.ceil(((i + 1) / count) * text.length)))
+const fractions = (count) => Array.from({ length: count }, (_, i) => (i + 1) / count)
+
+/**
+ * capture.gif: pick a chart, box one bar, ask why it grew, then ask for a table.
+ * capture-explain.png and capture-ocr.png: a stack trace explained, a shared table read out.
+ */
+async function captureImages(lang, frames) {
+  const story = CAPTURE_STORY[lang]
+  const { question, answer, followUp, table } = story.walk
+  const steps = []
+  const hold = (code, times) => { for (let i = 0; i < times; i += 1) steps.push(code) }
+  hold(`point(${WALK_PICK[0] + 60}, ${WALK_PICK[1] + 80}); fire('mousemove', ${WALK_PICK[0] + 60}, ${WALK_PICK[1] + 80})`, 4)
+  for (const f of fractions(6)) hold(`await drag(${JSON.stringify(WALK_PICK)}, ${f})`, f < 1 ? 1 : 5)
+  const picked = `await drag(${JSON.stringify(WALK_PICK)}); tool('rect')`
+  for (const f of fractions(5)) hold(`${picked}; await drag(${JSON.stringify(WALK_BOX)}, ${f})`, f < 1 ? 1 : 4)
+  const boxed = `${picked}; await drag(${JSON.stringify(WALK_BOX)})`
+  hold(`${boxed}; hover('[data-ai="ask"]')`, 5)
+  for (const part of pieces(question, 6)) hold(`${boxed}; ask(${JSON.stringify(part)})`, part === question ? 6 : 1)
+  const turn = (q, text, done) => ({ question: q, text, done })
+  const panel = (turns, typing = '') => `${boxed}; await answer('ask', ${JSON.stringify(WALK_PICK)}, ${JSON.stringify(turns)}, ${JSON.stringify(typing)})`
+  hold(panel([turn(question, '', false)]), 4)
+  for (const part of pieces(answer, 10)) hold(panel([turn(question, part, part === answer)]), part === answer ? 14 : 1)
+  const first = turn(question, answer, true)
+  for (const part of pieces(followUp, 4)) hold(panel([first], part), part === followUp ? 5 : 1)
+  hold(panel([first, turn(followUp, '', false)]), 4)
+  for (const part of pieces(table, 8)) hold(panel([first, turn(followUp, part, part === table)]), part === table ? 30 : 1)
 
   const dir = join(work, `capture-${lang}`)
   mkdirSync(dir, { recursive: true })
-  chrome(captureScene(lang, frameUrl, `${annotated}; cursor.style.display = 'none'`), join(OUT, lang, 'capture.png'), { ...DESK, scale: 2, budget: 4000 })
-  const unique = [...new Set(frames)]
-  const shotOf = (steps) => join(dir, `unique-${unique.indexOf(steps)}.png`)
-  for (const steps of unique) chrome(captureScene(lang, frameUrl, steps), shotOf(steps), { ...DESK, scale: 1, budget: 4000 })
-  await shoot()
-  frames.forEach((steps, index) => writeFileSync(join(dir, `${String(index).padStart(3, '0')}.png`), readFileSync(shotOf(steps))))
+  const unique = [...new Set(steps)]
+  const shotOf = (code) => join(dir, `unique-${unique.indexOf(code)}.png`)
+  const browser = await devtools()
+  try {
+    for (const code of unique) await browser.shot(captureScene(lang, frames.chart, code), shotOf(code), { ...DESK, scale: 1 })
+    const still = (frame, action, turns) => captureScene(lang, frame, `await answer(${JSON.stringify(action)}, ${JSON.stringify(STILL_PICK)}, ${JSON.stringify(turns)})`)
+    await browser.shot(still(frames.error, 'explain', [turn(null, story.explain, true)]), join(OUT, lang, 'capture-explain.png'), { ...DESK, scale: 2 })
+    await browser.shot(still(frames.table, 'ocr', [turn(null, OCR_TEXT, true)]), join(OUT, lang, 'capture-ocr.png'), { ...DESK, scale: 2 })
+  } finally {
+    browser.close()
+  }
+  steps.forEach((code, index) => writeFileSync(join(dir, `${String(index).padStart(3, '0')}.png`), readFileSync(shotOf(code))))
   execFileSync('ffmpeg', [
     '-y', '-loglevel', 'error', '-framerate', '8', '-i', join(dir, '%03d.png'),
     '-vf', 'scale=880:-1:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle',
@@ -482,7 +648,7 @@ const LANGS = ['zh', 'en']
 const langs = only.filter((arg) => LANGS.includes(arg))
 const parts = only.filter((arg) => !LANGS.includes(arg))
 const wants = (part) => parts.length === 0 || parts.includes(part)
-const frameUrl = wants('capture') ? await desktopFrame() : null
+const frames = wants('capture') ? await desktopFrames() : null
 for (const lang of LANGS) {
   if (langs.length && !langs.includes(lang)) continue
   mkdirSync(join(OUT, lang), { recursive: true })
@@ -493,7 +659,7 @@ for (const lang of LANGS) {
     await shoot()
     await walkthrough(lang)
   }
-  if (wants('capture')) await captureImages(lang, frameUrl)
+  if (wants('capture')) await captureImages(lang, frames)
   console.log(`${lang}: done`)
 }
 rmSync(work, { recursive: true, force: true })

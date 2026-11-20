@@ -8,7 +8,11 @@
 - While the capture overlay is up, the toolbar stops reading selections, so dragging out a region is not taken for a text selection.
 - ⌘C, ⌘S, ⌘Z and ⌘P work in the capture overlay and on pins on macOS. A copy keystroke that another app's selection tool posts after a drag is still ignored: the screenshot process checks whether ⌘ is held on the keyboard itself.
 - Installing on a Mac asks for at most one permission at once: Accessibility for the toolbar. The screenshot process listens for its shortcut only once DSH has that grant (the system-registered shortcut needs none), and screen recording is asked for on the first capture.
-- The README shows a screenshot walk-through and an annotated capture, drawn from the real pages by `pnpm screenshots`.
+- The README opens with what selection and screenshots can do: a screenshot walk-through (box part of a chart, ask about it, follow up) and two AI examples (an error explained, a shared table read out), drawn from the real pages by `pnpm screenshots`.
+- Answers render bold around inline code (`` **`x`** ``), which models write often; before, the asterisks showed.
+- Extract text lines up the columns of a Tab-separated table in the answer panel.
+- The settings page and the mini toolbar no longer use the old name 划词助手.
+- On Windows, resizing a pin from its corner or zooming it with the wheel applies one size per display frame, so the page inside keeps up with the window instead of trailing the pointer.
 - Windows has been tried on real hardware; the README no longer calls it untested.
 
 ## 0.2.2 (2026-11-09)
