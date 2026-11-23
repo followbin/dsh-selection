@@ -115,7 +115,7 @@ Open **Selection + Screenshot** in DSH's sidebar. Changes are saved and applied 
 ## Known limitations
 
 - While macOS secure input is on (a password field has focus, for example), the system hands over no selection and the toolbar does not appear.
-- On Windows, selections in apps running as administrator cannot be read; Smart App Control may block unsigned native modules; screenshots have not yet been tried on real multi-display setups with mixed scaling.
+- On Windows, selections in apps running as administrator cannot be read; Smart App Control may block unsigned native modules; screenshots have been tried on real Windows hardware, but not yet on multiple displays with different scaling.
 - Read aloud uses the system voices, so its quality depends on which voices are installed.
 - Selection and screenshots each run in their own background process, so a fault in one does not take down the other, at the cost of some memory.
 
