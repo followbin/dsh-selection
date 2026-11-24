@@ -14,6 +14,8 @@ window.__ModuleLoader__.load({
     const SAVE_DELAY_MS = 350
     // How long "Saved" replaces the worker status in the header.
     const SAVED_NOTICE_MS = 2000
+    /** While screen recording is not allowed, how often the page reads the access again. */
+    const CAPTURE_PERMISSION_POLL_MS = 2000
 
     const zh = {
       'title': '划词+截图',
@@ -145,7 +147,7 @@ window.__ModuleLoader__.load({
       'shot.enabled.hint': '关掉后快捷键不再截图，截图进程也会停下；设置保留。',
       'shot.state': '截图进程',
       'shot.start': '开始截图',
-      'shot.noPermission': '还没有录屏权限，按页面上方的提示授权。',
+      'shot.noPermission': '还没有录屏权限，按系统的提示授权后再试。',
       'shot.hotkey': '截图快捷键',
       'shot.hotkey.hint': '在任意应用里按下，所有显示器同时进入截图。',
       'shot.hotkey.record': '按下新的快捷键…',
@@ -191,6 +193,8 @@ window.__ModuleLoader__.load({
       'shot.editor.clearImage': '移除',
       'shot.permission.title': '截图需要录屏权限',
       'shot.permission.body': '在「系统设置 → 隐私与安全性 → 录屏与系统录音」里打开 DeepSeek Harness，截图才能读到屏幕内容。授权后会自动生效，不用重启。',
+      'shot.permission.ask': '点「授权」，在系统弹窗里选「打开系统设置」，再打开 DeepSeek Harness。授权后会自动生效，不用重启。',
+      'shot.permission.grant': '授权',
       'shot.model.title': '看图模型',
       'shot.model.hint': '截图的 AI 功能用这里的模型，只列出支持图片输入的模型；追问会带上同一个面板里之前的问答。',
       'shot.model.auto': '自动（第一个能看图的模型）',
@@ -335,7 +339,7 @@ window.__ModuleLoader__.load({
       'shot.enabled.hint': 'Turning this off stops the shortcut and the screenshot process; settings are kept.',
       'shot.state': 'Screenshot process',
       'shot.start': 'Take a screenshot',
-      'shot.noPermission': 'Screen recording is not allowed yet; see the notice above.',
+      'shot.noPermission': 'Screen recording is not allowed yet; allow it where the system asks, then try again.',
       'shot.hotkey': 'Capture shortcut',
       'shot.hotkey.hint': 'Press it in any app to start a capture on every display.',
       'shot.hotkey.record': 'Press the new shortcut…',
@@ -381,6 +385,8 @@ window.__ModuleLoader__.load({
       'shot.editor.clearImage': 'Remove',
       'shot.permission.title': 'Screen recording permission needed for screenshots',
       'shot.permission.body': 'Turn on DeepSeek Harness in System Settings → Privacy & Security → Screen & System Audio Recording so captures can read the screen. It starts working as soon as you allow it, without a restart.',
+      'shot.permission.ask': 'Click Grant access, choose Open System Settings in the system prompt, and turn DeepSeek Harness on. It starts working as soon as you allow it, without a restart.',
+      'shot.permission.grant': 'Grant access',
       'shot.model.title': 'Vision model (screenshots)',
       'shot.model.hint': 'Screenshot actions use this model; only models with image input are listed. Follow-ups carry the earlier turns of the same panel.',
       'shot.model.auto': 'Auto (first image-capable model)',
@@ -1316,6 +1322,38 @@ window.__ModuleLoader__.load({
         void flush()
       }, [flush])
 
+      // Screen-recording access changes in System Settings, outside this page. The page reads it again
+      // when it opens, when the 截图 tab is chosen, when the window comes back, and every few seconds
+      // while it is missing; the answer arrives as a status event.
+      const capturePermission = state && state.status.capture ? state.status.capture.permission : null
+      const captureMissing = capturePermission === 'denied' || capturePermission === 'not-determined'
+      const watchCapture = Boolean(state && state.status.supported && state.status.platform === 'darwin' && state.settings.capture.enabled)
+      const checkCapture = useCallback(() => {
+        if (window.document.visibilityState === 'hidden') return
+        request('/capture/permission/check', { method: 'POST', body: '{}' }).catch(() => {
+          // The Host is restarting; the event stream reconnects and the next check runs.
+        })
+      }, [])
+      useEffect(() => { if (watchCapture) checkCapture() }, [watchCapture, checkCapture])
+      useEffect(() => { if (watchCapture && tab === 'shot') checkCapture() }, [watchCapture, tab, checkCapture])
+      useEffect(() => {
+        if (!watchCapture) return undefined
+        const onReturn = () => checkCapture()
+        window.addEventListener('focus', onReturn)
+        window.document.addEventListener('visibilitychange', onReturn)
+        return () => {
+          window.removeEventListener('focus', onReturn)
+          window.document.removeEventListener('visibilitychange', onReturn)
+        }
+      }, [watchCapture, checkCapture])
+      useEffect(() => {
+        if (!watchCapture || !captureMissing) return undefined
+        let poll = null
+        const next = () => { poll = setTimeout(() => { checkCapture(); next() }, CAPTURE_PERMISSION_POLL_MS) }
+        next()
+        return () => clearTimeout(poll)
+      }, [watchCapture, captureMissing, checkCapture])
+
       if (!state) {
         return h('div', { className: 'dss-root' }, h('style', null, css),
           h('div', { className: 'dss-page' }, h('div', { className: 'dss-title' }, t('title')),
@@ -1363,10 +1401,13 @@ window.__ModuleLoader__.load({
               h('button', { type: 'button', className: 'dss-button primary', onClick: () => act('/permission/open') }, t('permission.open')))
             : null,
 
-          status.supported && status.platform === 'darwin' && settings.capture.enabled && status.capture && status.capture.permission === 'denied'
+          watchCapture && captureMissing
             ? h('div', { className: 'dss-banner' },
-              h('div', { style: { flex: 1 } }, h('strong', null, t('shot.permission.title')), h('p', null, t('shot.permission.body'))),
-              h('button', { type: 'button', className: 'dss-button primary', onClick: () => act('/capture/permission/open') }, t('permission.open')))
+              // Never answered: the system prompt adds DSH to the list. Denied: only System Settings can change it.
+              h('div', { style: { flex: 1 } }, h('strong', null, t('shot.permission.title')),
+                h('p', null, t(capturePermission === 'not-determined' ? 'shot.permission.ask' : 'shot.permission.body'))),
+              h('button', { type: 'button', className: 'dss-button primary', onClick: () => act('/capture/permission/request') },
+                t(capturePermission === 'not-determined' ? 'shot.permission.grant' : 'permission.open')))
             : null,
 
           h(Tabs, { t, tab, onSelect: setTab }),

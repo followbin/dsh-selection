@@ -68,8 +68,11 @@ export function createHttpHandler(service, { log, connection }) {
           return sendJson(res, 200, { ok: true })
         case 'POST /api/capture/folder/choose':
           return sendJson(res, 200, { settings: await service.capture.chooseFolder() })
-        case 'POST /api/capture/permission/open':
-          service.capture.openPermissionSettings()
+        case 'POST /api/capture/permission/request':
+          await service.capture.requestPermission()
+          return sendJson(res, 200, { ok: true })
+        case 'POST /api/capture/permission/check':
+          service.capture.checkPermission()
           return sendJson(res, 200, { ok: true })
         case 'POST /api/capture/restart':
           service.capture.restart()

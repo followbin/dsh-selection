@@ -31,6 +31,7 @@ export const TO_WORKER = Object.freeze({
   SHUTDOWN: 'shutdown',
   SETTINGS: 'settings',
   TRIGGER: 'trigger',
+  /** Show the system's screen-recording prompt; only an access never answered, as this process read it, gets one. */
   REQUEST_PERMISSION: 'request-permission',
   ANSWER_CHUNK: 'answer-chunk',
   ANSWER_END: 'answer-end',
@@ -40,7 +41,10 @@ export const TO_WORKER = Object.freeze({
 
 /** Stable reasons a capture could not start; the UI translates these. */
 export const BLOCKED = Object.freeze({
+  /** This process started without screen recording; the Host reads the access anew and asks for it or restarts the process. */
   NO_PERMISSION: 'no-permission',
+  /** Every display capture came back empty, as after a revocation in a running process. */
+  CAPTURE_FAILED: 'capture-failed',
   NO_DISPLAY: 'no-display',
   ASLEEP: 'displays-asleep',
   BUSY: 'busy',

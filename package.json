@@ -1,6 +1,6 @@
 {
   "name": "@followbin/dsh-selection",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "Select text or capture a region of the screen in any app, and let DSH translate, summarize, explain, extract or answer about it. Captures can be annotated, pinned and saved.",
   "keywords": [
     "dsh",

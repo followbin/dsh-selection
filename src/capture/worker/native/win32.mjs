@@ -12,22 +12,10 @@
 //   - The windows are the toolkit's own (wry/tao with WebView2); this module only adjusts
 //     them through their HWND: topmost, no taskbar button, rounded corners, foreground.
 //   - Capture is GDI BitBlt per monitor, which needs no permission on Windows.
-import { createRequire } from 'node:module'
 import { writeFileSync } from 'node:fs'
 import zlib from 'node:zlib'
+import { koffi } from './koffi.mjs'
 
-const require = createRequire(import.meta.url)
-
-function loadKoffi() {
-  const name = `@koromix/koffi-${process.platform}-${process.arch}`
-  try {
-    return require(name)
-  } catch (error) {
-    throw new Error(`${name} is missing; reinstall the plugin for this platform (${error.message})`)
-  }
-}
-
-const koffi = loadKoffi()
 const user32 = koffi.load('user32.dll')
 const gdi32 = koffi.load('gdi32.dll')
 const kernel32 = koffi.load('kernel32.dll')
@@ -487,7 +475,8 @@ export function imageFromPng(bytes) {
 // --- app behaviour -----------------------------------------------------------
 
 /** Windows has no screen-capture consent gate. */
-export function screenPermission() { return 'granted' }
+export function screenAccess() { return { state: 'granted', live: true } }
+export function processCanCapture() { return true }
 export function requestScreenPermission() { return true }
 
 /** Apps light or dark, from AppsUseLightTheme. */

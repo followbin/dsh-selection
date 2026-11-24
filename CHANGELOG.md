@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.1 (2026-11-24)
+
+- macOS screen recording is read anew whenever a capture cannot start, so a permission removed while DSH runs is noticed at once instead of the capture silently doing nothing. A press without it shows the system prompt if the permission was never answered, and otherwise opens the Screen & System Audio Recording pane; before, only the first press of a session asked, and the settings page button opened a pane where DSH was not listed yet. macOS answers each process from what it first read, so a short-lived process does the reading.
+- A grant made while DSH runs is picked up within two seconds of asking, and a press granted since the screenshot process started restarts that process and captures right away.
+- The settings page asks for screen recording the same way ("Grant access" for a permission never answered, "Open System Settings" after a denial) and reads it again when it opens, when the Screenshot tab is chosen, when the window comes back, and every two seconds while it is missing.
+
 ## 0.3.0 (2026-11-20)
 
 - Screenshots join the plugin, now called 划词+截图 (Selection + Screenshot). Alt+D (⌥D) freezes every display; drag a region, annotate it (rectangle, circle, arrow, line, pen, text, numbered markers, blur), copy it with Enter, save it, pin it on screen, or run an AI action on it: Extract text, Translate, Explain, Ask, or your own. Answers open beside the capture as a short conversation with follow-ups. The shortcut is registered with the system, so the front app never receives it, and the settings page says when another app holds it or it matches a macOS system shortcut. Screenshots run in their own worker process; the screen-recording grant is asked for on the first capture only.

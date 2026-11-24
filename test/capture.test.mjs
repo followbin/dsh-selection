@@ -8,6 +8,7 @@ import { canonicalHotkey, defaultSettings, normalizeSettings } from '../src/host
 import { actionPrompt, systemPrompt } from '../src/capture/host/prompts.mjs'
 import { createHotkey } from '../src/capture/worker/hotkey.mjs'
 import { personHolds, shortcutArgs } from '../src/capture/worker/modifiers.mjs'
+import { createCaptureSession } from '../src/capture/worker/session.mjs'
 
 const directory = mkdtempSync(join(tmpdir(), 'dsh-selection-capture-'))
 after(() => rmSync(directory, { recursive: true, force: true }))
@@ -65,7 +66,18 @@ function fakeServices() {
   return { llm, attachments, calls }
 }
 
-function createService(name, { desktop = true, workers = fakeWorkers(), services = fakeServices() } = {}) {
+/** The screen-recording probe: answers with `reading`, counting its runs. */
+function fakeProbe(state = 'granted') {
+  const probe = { reading: { state, live: true }, runs: 0 }
+  probe.read = async () => { probe.runs += 1; return probe.reading }
+  return probe
+}
+
+/** Lets the probe's answer and what follows from it run. */
+const settle = async () => { for (let i = 0; i < 5; i++) await new Promise((resolve) => setImmediate(resolve)) }
+
+function createService(name, { desktop = true, workers = fakeWorkers(), services = fakeServices(), probe = fakeProbe() } = {}) {
+  const opened = []
   const service = createSelectionService({
     getLlm: () => services.llm,
     getAttachments: () => services.attachments,
@@ -74,9 +86,10 @@ function createService(name, { desktop = true, workers = fakeWorkers(), services
     desktop,
     platform: 'darwin',
     startWorker: workers.start,
-    openExternal: () => {},
+    openExternal: (url) => opened.push(url),
+    probeScreenAccess: probe.read,
   })
-  return { service, workers, services }
+  return { service, workers, services, opened, probe }
 }
 
 describe('screenshot settings', () => {
@@ -213,6 +226,88 @@ describe('screenshot process under the selection service', () => {
     await service.dispose()
   })
 
+  test('a press this process cannot capture reads the access anew: never answered brings the system prompt, denied the settings pane', async () => {
+    const probe = fakeProbe('not-determined')
+    const { service, workers, opened } = createService('ask', { probe })
+    const capture = workers.capture
+    const asks = () => capture.sent.filter((message) => message.type === 'request-permission').length
+    capture.options.onMessage({ type: 'permission', state: 'not-determined', live: true, process: false })
+    capture.options.onMessage({ type: 'cancelled', reason: 'no-permission' })
+    await settle()
+    assert.equal(probe.runs, 1)
+    assert.equal(asks(), 1, 'the worker read the same at its start, so it shows the prompt')
+    assert.deepEqual(opened, [])
+    // The prompt was answered with Deny: the system never prompts again.
+    probe.reading = { state: 'denied', live: true }
+    await new Promise((resolve) => setTimeout(resolve, 1600))
+    capture.options.onMessage({ type: 'cancelled', reason: 'no-permission' })
+    await settle()
+    assert.equal(asks(), 1)
+    assert.equal(opened.length, 1)
+    assert.match(opened[0], /^x-apple\.systempreferences:.*Privacy_ScreenCapture$/)
+    assert.equal(service.getState().status.capture.permission, 'denied')
+    await service.dispose()
+  })
+
+  test('a reset made while the process runs restarts it before the prompt, since that process would not prompt', async () => {
+    const probe = fakeProbe('not-determined')
+    const { service, workers } = createService('reset', { probe })
+    const capture = workers.capture
+    capture.options.onMessage({ type: 'permission', state: 'granted', live: true, process: true })
+    capture.options.onMessage({ type: 'cancelled', reason: 'capture-failed' })
+    await settle()
+    assert.equal(capture.restarts, 1)
+    assert.equal(capture.sent.filter((message) => message.type === 'request-permission').length, 0)
+    capture.options.onMessage({ type: 'ready', permission: { state: 'not-determined', live: true, process: false }, displays: 1 })
+    assert.equal(capture.sent.at(-1).type, 'request-permission')
+    await service.dispose()
+  })
+
+  test('after asking, the access is read every two seconds; a grant restarts the process, which can then capture', async () => {
+    const probe = fakeProbe('denied')
+    const { service, workers } = createService('watch', { probe })
+    const capture = workers.capture
+    capture.options.onMessage({ type: 'permission', state: 'denied', live: true, process: false })
+    await service.capture.requestPermission()
+    assert.equal(probe.runs, 1)
+    probe.reading = { state: 'granted', live: true }
+    await until(() => capture.restarts === 1, 3000)
+    assert.equal(service.getState().status.capture.permission, 'granted')
+    capture.options.onMessage({ type: 'ready', permission: { state: 'granted', live: true, process: true }, displays: 1 })
+    const runs = probe.runs
+    await new Promise((resolve) => setTimeout(resolve, 2300))
+    assert.equal(probe.runs, runs, 'the reading stops once the process can capture')
+    assert.equal(capture.restarts, 1)
+    await service.dispose()
+  })
+
+  test('a grant that a new process still cannot use restarts it at most twice in a row', async () => {
+    const { service, workers } = createService('grant-loop')
+    const capture = workers.capture
+    for (let i = 0; i < 4; i++) {
+      capture.options.onMessage({ type: 'ready', permission: { state: 'granted', live: true, process: false }, displays: 1 })
+      service.capture.checkPermission()
+      await settle()
+    }
+    assert.equal(capture.restarts, 2)
+    await service.dispose()
+  })
+
+  test('a press granted since the process started restarts it and captures once it is ready, but only once in a row', async () => {
+    const { service, workers } = createService('retry')
+    const capture = workers.capture
+    capture.options.onMessage({ type: 'permission', state: 'denied', live: true, process: false })
+    capture.options.onMessage({ type: 'cancelled', reason: 'no-permission' })
+    await settle()
+    assert.equal(capture.restarts, 1)
+    capture.options.onMessage({ type: 'ready', permission: { state: 'granted', live: true, process: true }, displays: 1 })
+    assert.equal(capture.sent.at(-1).type, 'trigger')
+    capture.options.onMessage({ type: 'cancelled', reason: 'capture-failed' })
+    await settle()
+    assert.equal(capture.restarts, 1, 'failing again right after the restart is logged, not retried')
+    await service.dispose()
+  })
+
   test('the shortcut\'s registration reaches the status the settings page reads', async () => {
     const { service, workers } = createService('hotkey')
     workers.capture.options.onMessage({ type: 'hotkey', spec: 'Alt+D', registered: false, reason: 'taken', listening: true })
@@ -285,6 +380,35 @@ describe('capture process', () => {
     const after = createHotkey({ ...quiet, load: trusted.load })
     assert.deepEqual([after.status().listening, trusted.made.started], [true, 1])
     after.dispose()
+  })
+
+  test('a capture says whether its process cannot capture or the system handed out no image', () => {
+    const display = { id: 1, x: 0, y: 0, width: 100, height: 100, main: true }
+    const machine = { process: false, frame: null }
+    const native = {
+      processCanCapture: () => machine.process,
+      displaysAsleep: () => false,
+      captureDisplay: () => machine.frame,
+      releaseFrame() {},
+    }
+    const blocked = []
+    const session = createCaptureSession({
+      native,
+      overlay: { show: () => 1, hide() {}, retopology() {} },
+      tracker: { refresh: () => false, displays: [display], activeDisplay: () => display },
+      dataDir: join(directory, 'session'),
+      log() {},
+      onResult() {},
+      onBlocked: (reason) => blocked.push(reason),
+    })
+    assert.equal(session.begin(), false)
+    // Allowed when this process started, revoked since: the system hands out no image.
+    machine.process = true
+    session.begin()
+    assert.deepEqual(blocked, ['no-permission', 'capture-failed'])
+    machine.frame = { handle: 1, width: 100, height: 100, scale: 1 }
+    assert.equal(session.begin(), true)
+    session.dispose()
   })
 
   test('a page\'s shortcut runs only when the keyboard holds the modifier it carries', () => {

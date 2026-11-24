@@ -239,6 +239,8 @@ function fakeLlm() {
 function createHost({ dataDir, llm, desktop, platform, connection }) {
   const worker = fakeWorker()
   const opened = []
+  // The screen-recording probe a fresh process would run, answering what the test sets.
+  const probe = { reading: { state: 'granted', live: true }, runs: 0 }
   const logs = []
   const log = (level, message, fields) => logs.push({ level, message, fields })
   const service = createSelectionService({
@@ -249,6 +251,7 @@ function createHost({ dataDir, llm, desktop, platform, connection }) {
     platform,
     startWorker: worker.start,
     openExternal: (url) => opened.push(url),
+    probeScreenAccess: async () => { probe.runs += 1; return probe.reading },
   })
   let subscriptions = 0
   const handler = createHttpHandler({
@@ -349,6 +352,7 @@ function createHost({ dataDir, llm, desktop, platform, connection }) {
     service,
     worker,
     opened,
+    probe,
     logs,
     requests,
     fetch,
@@ -874,6 +878,58 @@ describe('status and permission', () => {
     assert.equal(page.$('.dss-banner'), null, 'no banner while the permission is unknown')
     await page.step(() => page.host.worker.emit({ type: 'permission', trusted: false }))
     assert.ok(page.$('.dss-banner'))
+  })
+
+  test('a screenshot permission never asked for brings up the system prompt; after a denial the button opens System Settings', async () => {
+    const report = (host, state) => host.worker.capture.options.onMessage({ type: 'permission', state, live: true, process: false })
+    const page = await openPage({
+      before: (host) => {
+        host.probe.reading = { state: 'not-determined', live: true }
+        report(host, 'not-determined')
+      },
+    })
+    const asks = () => page.host.worker.capture.sent.filter((message) => message.type === 'request-permission').length
+    let banner = page.$('.dss-banner')
+    assert.equal(banner.querySelector('strong').textContent, page.t('shot.permission.title'))
+    assert.equal(banner.querySelector('p').textContent, page.t('shot.permission.ask'))
+    await page.click(page.button(page.t('shot.permission.grant'), banner))
+    assert.equal(page.requests('POST', '/capture/permission/request').length, 1)
+    assert.equal(asks(), 1, 'the screenshot process shows the system prompt')
+    assert.equal(page.host.opened.length, 0)
+    // The prompt was answered with Deny; the next reading says so.
+    page.host.probe.reading = { state: 'denied', live: true }
+    await page.click(page.$('#dss-tab-shot'))
+    banner = page.$('.dss-banner')
+    assert.equal(banner.querySelector('p').textContent, page.t('shot.permission.body'))
+    await page.click(page.button(page.t('permission.open'), banner))
+    assert.equal(asks(), 1, 'the system never prompts again after a denial')
+    assert.match(page.host.opened.at(-1), /^x-apple\.systempreferences:.*Privacy_ScreenCapture$/)
+    page.host.probe.reading = { state: 'granted', live: true }
+    await page.step(() => page.host.worker.capture.options.onMessage({ type: 'ready', permission: { state: 'granted', live: true, process: true }, displays: 1 }))
+    assert.equal(page.$('.dss-banner'), null, 'granting the permission removes the banner')
+  })
+
+  test('the page reads the screenshot permission when it opens, on the 截图 tab, when the window comes back, and every two seconds while it is missing', async () => {
+    const page = await openPage({ before: (host) => { host.probe.reading = { state: 'denied', live: true } } })
+    const checks = () => page.requests('POST', '/capture/permission/check').length
+    await page.advance(0)
+    assert.equal(checks(), 1, 'on opening')
+    assert.ok(page.host.probe.runs >= 1, 'a new process reads it')
+    assert.ok(page.$('.dss-banner'), 'the reading shows the banner')
+    await page.click(page.$('#dss-tab-shot'))
+    assert.equal(checks(), 2)
+    await page.step(() => window.dispatchEvent(new window.Event('focus')))
+    assert.equal(checks(), 3)
+    await page.advance(2000)
+    assert.equal(checks(), 4)
+    page.host.probe.reading = { state: 'granted', live: true }
+    await page.advance(2000)
+    assert.equal(page.$('.dss-banner'), null)
+    await page.advance(6000)
+    assert.equal(checks(), 5, 'no reading every few seconds once it is granted')
+    await page.click(page.$('#dss-tab-selection'))
+    await page.click(page.$('#dss-tab-shot'))
+    assert.equal(checks(), 6, 'choosing the tab still reads it')
   })
 
   test('Windows and Hosts without the toolbar never show the banner', async () => {

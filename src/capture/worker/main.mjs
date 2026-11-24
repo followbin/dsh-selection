@@ -46,10 +46,11 @@ const aiActions = () => (Array.isArray(settings.actions) ? settings.actions : []
 /** What an answer panel calls an action: a custom action's own name, or null for a built-in. */
 const actionName = (id) => (Array.isArray(settings.actions) ? settings.actions : []).find((entry) => entry.custom && entry.id === id)?.name ?? null
 
-// Read once: macOS answers from a snapshot taken when this process started, so a grant
-// made while we run is invisible here and only a fresh process will see it.
-const permission = native.screenPermission()
-send(FROM_WORKER.PERMISSION, { state: permission })
+// The access as this process read it at start, and whether it can capture. Neither follows later
+// changes (see native/darwin-access.mjs); the Host reads them anew in a probe process.
+const startAccess = native.screenAccess()
+const permission = { state: startAccess.state, live: startAccess.live, process: native.processCanCapture() }
+send(FROM_WORKER.PERMISSION, permission)
 
 const tracker = createDisplayTracker({
   native,
@@ -162,8 +163,8 @@ process.on('message', (message) => {
       if (message.settings && 'hotkey' in message.settings) hotkey.setSpec(message.settings.hotkey)
       return
     case TO_WORKER.REQUEST_PERMISSION:
-      // Shows the system prompt if it has never been answered. The grant only lands in a
-      // later process, so the Host restarts this one when the user says they granted it.
+      // The Host sends this only to a process that read the access as never answered. The grant
+      // only lands in a later process; the Host restarts this one once a probe reads it.
       native.requestScreenPermission()
       return
     case TO_WORKER.ANSWER_CHUNK:

@@ -58,9 +58,9 @@ Both permissions are granted to DeepSeek Harness, each asked for the first time 
 | Permission | Asked | Used for |
 | --- | --- | --- |
 | Accessibility | When the plugin first runs | Reading the selected text. Without it the toolbar never appears. |
-| Screen & System Audio Recording | The first time you press ⌥D | Reading the screen. It works as soon as you allow it, without a restart. |
+| Screen & System Audio Recording | The first time you press ⌥D, or Grant access at the top of the settings page | Reading the screen. It works as soon as you allow it, without a restart. |
 
-The capture shortcut itself needs no permission. The settings page says at the top which permission is missing.
+The capture shortcut itself needs no permission. The settings page says at the top which permission is missing. Pressing ⌥D without screen recording shows the system prompt if it was never answered; if it was denied, or turned off in System Settings, the Screen & System Audio Recording pane opens instead. Every press checks again, so this also works after the permission was removed.
 
 Note that macOS counts these permissions for every process DSH starts, including commands an agent runs. If that is not acceptable, do not grant them; you can turn them off any time under System Settings → Privacy & Security. Windows needs no extra permission.
 
@@ -108,7 +108,7 @@ Open **Selection + Screenshot** in DSH's sidebar. Changes are saved and applied 
 - **Installing fails because GitHub cannot be reached**: choose the mirror option and install by package name, `@followbin/dsh-selection`.
 - **Installed, but nothing happens**: check on the Plugins page that it is enabled (closing the dialog without **Enable now** leaves it off); restart DSH if it asks.
 - **No toolbar on macOS**: check that DeepSeek Harness is on under System Settings → Privacy & Security → Accessibility. If only one app is affected, check it is not in the disabled list and keep the copy fallback on.
-- **The capture shortcut does nothing**: read the note under the shortcut on the Screenshot tab; if another app holds it, pick another. A black capture, or one with only the desktop, means the screen recording permission is missing.
+- **The capture shortcut does nothing**: read the note under the shortcut on the Screenshot tab; if another app holds it, pick another. If pressing it brings up the system prompt or the Screen & System Audio Recording pane, the screen recording permission is missing: turn DeepSeek Harness on there.
 - **Model errors**: use the test buttons on the Models & language tab. If no model is available, sign in or add an API key in DSH; screenshot AI needs a model that accepts images.
 - **Anything else**: look at `~/.dsh/selection/host.log`, and use **Restart the assistant** or **Restart the screenshot process** on the settings page.
 

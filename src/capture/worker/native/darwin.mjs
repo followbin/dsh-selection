@@ -2,25 +2,8 @@
 // and the overlay window that pins a captured frame straight onto a CALayer.
 // Everything goes through koffi, so nothing in this plugin is compiled or signed
 // separately; it inherits DeepSeek Harness's own signature and TCC identity.
-import { createRequire } from 'node:module'
+import { koffi } from './koffi.mjs'
 
-const require = createRequire(import.meta.url)
-
-/**
- * Loads koffi's platform package directly. The `koffi` meta package runs an install
- * script that DSH's pnpm refuses by default; the platform packages carry the same
- * native API with no script.
- */
-function loadKoffi() {
-  const name = `@koromix/koffi-${process.platform}-${process.arch}`
-  try {
-    return require(name)
-  } catch (error) {
-    throw new Error(`${name} is missing; reinstall the plugin for this platform (${error.message})`)
-  }
-}
-
-const koffi = loadKoffi()
 const CG = koffi.load('/System/Library/Frameworks/CoreGraphics.framework/CoreGraphics')
 const CF = koffi.load('/System/Library/Frameworks/CoreFoundation.framework/CoreFoundation')
 const IIO = koffi.load('/System/Library/Frameworks/ImageIO.framework/ImageIO')
@@ -32,8 +15,6 @@ const CGSize = koffi.struct('CGSize', { width: 'double', height: 'double' })
 const CGRect = koffi.struct('CGRect', { origin: CGPoint, size: CGSize })
 
 // --- CoreGraphics ------------------------------------------------------------
-const cgPreflight = CG.func('bool CGPreflightScreenCaptureAccess(void)')
-const cgRequest = CG.func('bool CGRequestScreenCaptureAccess(void)')
 const cgActiveList = CG.func('int32_t CGGetActiveDisplayList(uint32_t max, _Out_ uint32_t *displays, _Out_ uint32_t *count)')
 const cgOnlineList = CG.func('int32_t CGGetOnlineDisplayList(uint32_t max, _Out_ uint32_t *displays, _Out_ uint32_t *count)')
 const cgDisplayBounds = CG.func('CGRect CGDisplayBounds(uint32_t display)')
@@ -149,26 +130,7 @@ export function protocolUrl(scheme, hostAndPath) {
 
 // --- permission --------------------------------------------------------------
 
-/**
- * Current screen-recording access.
- *
- * macOS answers this from a snapshot taken when the process started: a grant made
- * while this process is running is NOT observed here. The caller must re-exec (the
- * worker exits with RESTART_NOW) before a fresh grant becomes visible.
- * @returns {'granted' | 'denied'}
- */
-export function screenPermission() {
-  return cgPreflight() ? 'granted' : 'denied'
-}
-
-/**
- * Shows the system prompt once, if it has never been answered for this app.
- * Returns immediately; the grant only takes effect in a later process.
- * @returns {boolean} true when access was already present.
- */
-export function requestScreenPermission() {
-  return cgRequest()
-}
+export { processCanCapture, requestScreenPermission, screenAccess } from './darwin-access.mjs'
 
 // --- displays ----------------------------------------------------------------
 
@@ -348,9 +310,10 @@ export function onDisplaysChanged(onChange) {
  */
 
 /**
- * Capture one display. Without screen-recording access this still succeeds but
- * returns only the desktop picture and this process's own windows, so callers must
- * check {@link screenPermission} first rather than inferring failure from a null.
+ * Capture one display. In a process that started without screen-recording access this
+ * still succeeds but returns only the desktop picture and this process's own windows, so
+ * callers check {@link screenAccess} first; in a process whose access was revoked after it
+ * started, it returns null.
  * @param {{ id: number, width: number }} display
  * @returns {Frame | null}
  */

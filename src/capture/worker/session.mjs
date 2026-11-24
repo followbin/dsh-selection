@@ -50,7 +50,8 @@ export function createCaptureSession({ native, overlay, tracker, dataDir, log, o
     /** Freeze every display and raise the overlay. */
     begin() {
       if (active) { onBlocked(BLOCKED.BUSY); return false }
-      if (native.screenPermission() !== 'granted') { onBlocked(BLOCKED.NO_PERMISSION); return false }
+      // Whether access exists now is the Host's to find out: this process only knows its own start.
+      if (!native.processCanCapture()) { onBlocked(BLOCKED.NO_PERMISSION); return false }
       if (native.displaysAsleep?.()) { onBlocked(BLOCKED.ASLEEP); return false }
 
       // A display may have changed without a settled notification, or inside the settle
@@ -73,8 +74,7 @@ export function createCaptureSession({ native, overlay, tracker, dataDir, log, o
         else log('warn', 'display capture returned nothing', { display: display.id })
       }
       if (frames.size === 0) {
-        for (const f of frames.values()) native.releaseFrame(f)
-        onBlocked(BLOCKED.NO_DISPLAY)
+        onBlocked(BLOCKED.CAPTURE_FAILED)
         return false
       }
       active = { frames, startedAt, round: 0 }

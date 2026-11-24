@@ -12,7 +12,7 @@ import {
   createSettingsStore, defaultSettings, enabledSkills, findSkill, searchTemplate,
 } from './settings.mjs'
 import { buildRequest } from './skills.mjs'
-import { createCaptureService } from '../capture/host/capture.mjs'
+import { createCaptureService, probeScreenAccess } from '../capture/host/capture.mjs'
 import { BUILTIN_ACTION_ICONS, CUSTOM_ACTION_ICONS } from '../capture/shared/icons.mjs'
 import { startWorker } from './supervisor.mjs'
 import { createUsageStore } from './usage.mjs'
@@ -35,14 +35,16 @@ export class BadRequest extends Error {}
  *   platform?: string,
  *   startWorker?: typeof startWorker,
  *   openExternal?: (url: string) => void,
+ *   probeScreenAccess?: typeof probeScreenAccess,
  *   localePreference?: string,
  * }} options `desktop` is false when the Host is not on the user's machine (e.g. a remote web Host).
- *   Tests replace `platform`, `startWorker` and `openExternal`. `getAttachments` is DSH's attachment
+ *   Tests replace `platform`, `startWorker`, `openExternal` and `probeScreenAccess`. `getAttachments` is DSH's attachment
  *   store, which screenshots go through to reach a vision model.
  */
 export function createSelectionService({
   getLlm, getAttachments = () => null, log, localePreference, dataDir = dataDirectory(), desktop, promptForPermission = true,
   platform = process.platform, startWorker: launchWorker = startWorker, openExternal = (url) => openWithSystem(url, log),
+  probeScreenAccess: probeAccess = probeScreenAccess,
 }) {
   const settings = createSettingsStore({ file: join(dataDir, 'settings.json'), log })
   // The language DSH's interface shows; the toolbar and the screenshot pages follow it. The
@@ -101,6 +103,7 @@ export function createSelectionService({
     startWorker: launchWorker,
     openExternal,
     uiLocale,
+    probeAccess,
   })
   status.capture = capture.status()
   status.uiLocale = uiLocale()
@@ -391,10 +394,11 @@ export function createSelectionService({
       testAction: (input) => capture.testAction(input, BadRequest),
       openFolder: () => capture.openSaveFolder(),
       chooseFolder: () => capture.chooseSaveFolder(),
-      openPermissionSettings() {
+      requestPermission() {
         if (platform !== 'darwin') throw new BadRequest('only macOS needs a screen-recording grant')
-        capture.openPermissionSettings()
+        return capture.requestPermission()
       },
+      checkPermission: () => capture.checkPermission(),
       restart: () => capture.restart(),
     },
     subscribe(listener) {
